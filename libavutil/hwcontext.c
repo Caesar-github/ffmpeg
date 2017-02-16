@@ -38,6 +38,9 @@ static const HWContextType *hw_table[] = {
 #if CONFIG_QSV
     &ff_hwcontext_type_qsv,
 #endif
+#if CONFIG_RKMPP
+    &ff_hwcontext_type_rkmpp,
+#endif
 #if CONFIG_VAAPI
     &ff_hwcontext_type_vaapi,
 #endif
