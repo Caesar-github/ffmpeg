@@ -22,6 +22,7 @@ typedef struct {
 
     MppCtx ctx;
     MppApi *mpi;
+    MppBufferGroup frame_group;
 
     char first_packet;
     char eos_reached;
@@ -222,6 +223,13 @@ static void ffrkmpp_release_decoder(void *opaque, uint8_t *data)
 
     if (decoder) {
         mpp_destroy(decoder->ctx);
+        decoder->ctx = NULL;
+
+        if (decoder->frame_group) {
+            mpp_buffer_group_put(decoder->frame_group);
+            decoder->frame_group = NULL;
+        }
+
     }
 
 }
@@ -270,6 +278,19 @@ static int ffrkmpp_init_decoder(AVCodecContext *avctx)
     ret = mpp_init(decoder->ctx, MPP_CTX_DEC, codectype);
     if (ret != MPP_OK) {
         av_log(avctx, AV_LOG_ERROR, "Failed to initialize MPP context (code = %d).\n", ret);
+        goto fail;
+    }
+
+    // assign a  framegroup to the decoder
+    ret = mpp_buffer_group_get_internal(&decoder->frame_group, MPP_BUFFER_TYPE_ION);
+    if (ret != MPP_OK) {
+        av_log(avctx, AV_LOG_ERROR, "Failed to retrieve a frame group (code = %d).\n", ret);
+        goto fail;
+    }
+
+    ret = decoder->mpi->control(decoder->ctx, MPP_DEC_SET_EXT_BUF_GROUP, decoder->frame_group);
+    if (ret != MPP_OK) {
+        av_log(avctx, AV_LOG_ERROR, "Failed to assign frame group to decoder (code = %d).\n", ret);
         goto fail;
     }
 
