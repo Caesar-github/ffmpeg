@@ -466,13 +466,12 @@ static int ffrkmpp_receive_frame(AVCodecContext *avctx, AVFrame *frame)
             rk_context->framecount++;
             fps = ffrkmpp_compute_framerate(avctx);
             profile_log(avctx, "Received frame, queue size = %d, (%.2f fps)", rk_context->framequeue.size, fps);
-            rk_context->fill_decoder = 1;
         }
     }
 
     // we decode a few frames on decode startup before sending frames
     // decoder output can be non regular on startup
-    if ((!rk_context->output_started) && (rk_context->framequeue.size < 16))
+    if ((!rk_context->output_started) && (rk_context->framequeue.size < 4))
         return AVERROR(EAGAIN);
 
     rk_context->output_started = 1;
