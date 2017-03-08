@@ -80,7 +80,7 @@ static void profile_log(AVCodecContext *avctx, const char *fmt, ...)
     av_log(avctx, AV_LOG_DEBUG, "%s%s\n", stamp, msg);
 }
 
-static float ffrkmpp_compute_framerate(AVCodecContext *avctx)
+static double ffrkmpp_compute_framerate(AVCodecContext *avctx)
 {
     static struct timespec reftime;
     static int refframecount;
@@ -100,7 +100,7 @@ static float ffrkmpp_compute_framerate(AVCodecContext *avctx)
                ((double)reftime.tv_sec + ((double)reftime.tv_nsec / 1000000000.0));
 
     if (timediff != 0)
-        return (float)(rk_context->framecount - refframecount) / timediff;
+        return (double)(rk_context->framecount - refframecount) / timediff;
     else
         return 0;
 }
@@ -436,7 +436,7 @@ static int ffrkmpp_receive_frame(AVCodecContext *avctx, AVFrame *frame)
     MppBuffer buffer = NULL;
     MppBufferInfo bufferinfo;
     av_drmprime *primedata = NULL;
-    float fps;
+    double fps;
 
     // if we want to fill the decoder, switch to send_packet
     if ((rk_context->fill_decoder) && (!decoder->eos_reached))
