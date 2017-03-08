@@ -90,14 +90,15 @@ static float ffrkmpp_compute_framerate(AVCodecContext *avctx)
     RKMPPDecodeContext *rk_context = avctx->priv_data;
 
     clock_gettime(CLOCK_REALTIME, &time);
-    timediff = ((float)time.tv_sec + ((float)time.tv_nsec / 1000000000.0)) -
-               ((float)reftime.tv_sec + ((float)reftime.tv_nsec / 1000000000.0));
 
-    if (time.tv_sec != reftime.tv_sec) {
+    if (rk_context->framecount == 1) {
         refframecount = rk_context->framecount;
         reftime.tv_sec  = time.tv_sec;
         reftime.tv_nsec = time.tv_nsec;
     }
+
+    timediff = ((float)time.tv_sec + ((float)time.tv_nsec / 1000000000.0)) -
+               ((float)reftime.tv_sec + ((float)reftime.tv_nsec / 1000000000.0));
 
     if (timediff != 0)
         return (float)(rk_context->framecount - refframecount) / timediff;
