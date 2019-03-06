@@ -127,10 +127,6 @@ ifeq ($(DEB_HOST_ARCH_OS),linux)
 		--enable-libiec61883
 endif
 
-# Some build-dependencies are not installable on some architectures.
-ifeq (,$(filter $(DEB_HOST_ARCH),powerpcspe))
-	CONFIG_extra += --enable-netcdf
-endif
 
 # ffmpeg is involed in build-dependency cycles with opencv, x264 and chromaprint, so disable them in stage one.
 # Also disable frei0r, which build-depends on opencv.

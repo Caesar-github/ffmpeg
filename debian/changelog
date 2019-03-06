@@ -1,3 +1,8 @@
+ffmpeg (7:3.4.2-rk) unstable; urgency=medium
+
+  * Add rockchip mpp support
+ -- Caesar Wang <wxt@rock-chips.com>  Wed, 06 Mar 2019 18:54:45 +0100
+
 ffmpeg (7:3.2.4-rk) unstable; urgency=medium
 
   * Add rockchip mpp support

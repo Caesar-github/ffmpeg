@@ -18,8 +18,7 @@
  * License along with FFmpeg; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
-
-#include <drm/drm_fourcc.h>
+#include <libdrm/drm_fourcc.h>
 #include <pthread.h>
 #include <rockchip/mpp_buffer.h>
 #include <rockchip/rk_mpi.h>
@@ -452,7 +451,7 @@ static int ffrkmpp_receive_frame(AVCodecContext *avctx, AVFrame *frame)
 
     if (!decoder->eos_reached) {
         // we get the available slots in decoder
-        ret = decoder->mpi->control(decoder->ctx, MPP_DEC_GET_FREE_PACKET_SLOT_COUNT, &freeslots);
+        ret = decoder->mpi->control(decoder->ctx, MPP_DEC_GET_STREAM_COUNT, &freeslots);
         if (ret != MPP_OK) {
             av_log(avctx, AV_LOG_ERROR, "Failed to get decoder free slots (code = %d).\n", ret);
             return ret;
