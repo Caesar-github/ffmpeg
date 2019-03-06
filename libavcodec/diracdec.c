@@ -26,6 +26,7 @@
  * @author Marco Gerards <marco@gnu.org>, David Conrad, Jordi Ortiz <nenjordi@gmail.com>
  */
 
+#include "libavutil/thread.h"
 #include "avcodec.h"
 #include "get_bits.h"
 #include "bytestream.h"
@@ -379,10 +380,12 @@ static void free_sequence_buffers(DiracContext *s)
     av_freep(&s->mcscratch);
 }
 
+static AVOnce dirac_arith_init = AV_ONCE_INIT;
+
 static av_cold int dirac_decode_init(AVCodecContext *avctx)
 {
     DiracContext *s = avctx->priv_data;
-    int i;
+    int i, ret;
 
     s->avctx = avctx;
     s->frame_number = -1;
@@ -404,6 +407,9 @@ static av_cold int dirac_decode_init(AVCodecContext *avctx)
             return AVERROR(ENOMEM);
         }
     }
+    ret = ff_thread_once(&dirac_arith_init, ff_dirac_init_arith_tables);
+    if (ret != 0)
+        return AVERROR_UNKNOWN;
 
     return 0;
 }
@@ -817,7 +823,7 @@ static int decode_hq_slice(DiracContext *s, DiracSlice *slice, uint8_t *tmp_buf)
     skip_bits_long(gb, 8*s->highquality.prefix_bytes);
     quant_idx = get_bits(gb, 8);
 
-    if (quant_idx > DIRAC_MAX_QUANT_INDEX) {
+    if (quant_idx > DIRAC_MAX_QUANT_INDEX - 1) {
         av_log(s->avctx, AV_LOG_ERROR, "Invalid quantization index - %i\n", quant_idx);
         return AVERROR_INVALIDDATA;
     }
@@ -1251,11 +1257,10 @@ static int dirac_unpack_idwt_params(DiracContext *s)
         if (get_bits1(gb)) {
             av_log(s->avctx,AV_LOG_DEBUG,"Low Delay: Has Custom Quantization Matrix!\n");
             /* custom quantization matrix */
-            s->lowdelay.quant[0][0] = get_interleaved_ue_golomb(gb);
             for (level = 0; level < s->wavelet_depth; level++) {
-                s->lowdelay.quant[level][1] = get_interleaved_ue_golomb(gb);
-                s->lowdelay.quant[level][2] = get_interleaved_ue_golomb(gb);
-                s->lowdelay.quant[level][3] = get_interleaved_ue_golomb(gb);
+                for (i = !!level; i < 4; i++) {
+                    s->lowdelay.quant[level][i] = get_interleaved_ue_golomb(gb);
+                }
             }
         } else {
             if (s->wavelet_depth > 4) {
@@ -2041,9 +2046,9 @@ static int get_delayed_pic(DiracContext *s, AVFrame *picture, int *got_frame)
 
     if (out) {
         out->reference ^= DELAYED_PIC_REF;
-        *got_frame = 1;
         if((ret = av_frame_ref(picture, out->avframe)) < 0)
             return ret;
+        *got_frame = 1;
     }
 
     return 0;
@@ -2299,5 +2304,6 @@ AVCodec ff_dirac_decoder = {
     .close          = dirac_decode_end,
     .decode         = dirac_decode_frame,
     .capabilities   = AV_CODEC_CAP_DELAY | AV_CODEC_CAP_SLICE_THREADS | AV_CODEC_CAP_DR1,
+    .caps_internal  = FF_CODEC_CAP_INIT_THREADSAFE,
     .flush          = dirac_decode_flush,
 };

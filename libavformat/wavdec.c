@@ -323,7 +323,6 @@ static int wav_read_header(AVFormatContext *s)
     int64_t size, av_uninit(data_size);
     int64_t sample_count = 0;
     int rf64 = 0;
-    char start_code[32];
     uint32_t tag;
     AVIOContext *pb      = s->pb;
     AVStream *st         = NULL;
@@ -347,8 +346,8 @@ static int wav_read_header(AVFormatContext *s)
         rf64 = 1;
         break;
     default:
-        av_get_codec_tag_string(start_code, sizeof(start_code), tag);
-        av_log(s, AV_LOG_ERROR, "invalid start code %s in RIFF header\n", start_code);
+        av_log(s, AV_LOG_ERROR, "invalid start code %s in RIFF header\n",
+               av_fourcc2str(tag));
         return AVERROR_INVALIDDATA;
     }
 
@@ -410,7 +409,7 @@ static int wav_read_header(AVFormatContext *s)
             got_xma2 = 1;
             break;
         case MKTAG('d', 'a', 't', 'a'):
-            if (!pb->seekable && !got_fmt && !got_xma2) {
+            if (!(pb->seekable & AVIO_SEEKABLE_NORMAL) && !got_fmt && !got_xma2) {
                 av_log(s, AV_LOG_ERROR,
                        "found no 'fmt ' tag before the 'data' tag\n");
                 return AVERROR_INVALIDDATA;
@@ -433,7 +432,7 @@ static int wav_read_header(AVFormatContext *s)
             /* don't look for footer metadata if we can't seek or if we don't
              * know where the data tag ends
              */
-            if (!pb->seekable || (!rf64 && !size))
+            if (!(pb->seekable & AVIO_SEEKABLE_NORMAL) || (!rf64 && !size))
                 goto break_loop;
             break;
         case MKTAG('f', 'a', 'c', 't'):
@@ -821,7 +820,7 @@ static int w64_read_header(AVFormatContext *s)
             wav->data_end = avio_tell(pb) + size - 24;
 
             data_ofs = avio_tell(pb);
-            if (!pb->seekable)
+            if (!(pb->seekable & AVIO_SEEKABLE_NORMAL))
                 break;
 
             avio_skip(pb, size - 24);
@@ -842,6 +841,8 @@ static int w64_read_header(AVFormatContext *s)
                 chunk_key[4] = 0;
                 avio_read(pb, chunk_key, 4);
                 chunk_size = avio_rl32(pb);
+                if (chunk_size == UINT32_MAX)
+                    return AVERROR_INVALIDDATA;
 
                 value = av_mallocz(chunk_size + 1);
                 if (!value)

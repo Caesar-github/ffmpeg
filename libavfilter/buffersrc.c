@@ -155,7 +155,7 @@ int attribute_align_arg av_buffersrc_add_frame_flags(AVFilterContext *ctx, AVFra
     int ret = 0;
 
     if (frame && frame->channel_layout &&
-        av_get_channel_layout_nb_channels(frame->channel_layout) != av_frame_get_channels(frame)) {
+        av_get_channel_layout_nb_channels(frame->channel_layout) != frame->channels) {
         av_log(ctx, AV_LOG_ERROR, "Layout indicates a different number of channels than actually present\n");
         return AVERROR(EINVAL);
     }
@@ -173,20 +173,6 @@ int attribute_align_arg av_buffersrc_add_frame_flags(AVFilterContext *ctx, AVFra
     return ret;
 }
 
-static int push_frame(AVFilterGraph *graph)
-{
-    int ret;
-
-    while (1) {
-        ret = ff_filter_graph_run_once(graph);
-        if (ret == AVERROR(EAGAIN))
-            break;
-        if (ret < 0)
-            return ret;
-    }
-    return 0;
-}
-
 static int av_buffersrc_add_frame_internal(AVFilterContext *ctx,
                                            AVFrame *frame, int flags)
 {
@@ -199,11 +185,6 @@ static int av_buffersrc_add_frame_internal(AVFilterContext *ctx,
     if (!frame) {
         s->eof = 1;
         ff_avfilter_link_set_in_status(ctx->outputs[0], AVERROR_EOF, AV_NOPTS_VALUE);
-        if ((flags & AV_BUFFERSRC_FLAG_PUSH)) {
-            ret = push_frame(ctx->graph);
-            if (ret < 0)
-                return ret;
-        }
         return 0;
     } else if (s->eof)
         return AVERROR(EINVAL);
@@ -222,7 +203,7 @@ static int av_buffersrc_add_frame_internal(AVFilterContext *ctx,
         if (!frame->channel_layout)
             frame->channel_layout = s->channel_layout;
         CHECK_AUDIO_PARAM_CHANGE(ctx, s, frame->sample_rate, frame->channel_layout,
-                                 av_frame_get_channels(frame), frame->format);
+                                 frame->channels, frame->format);
         break;
     default:
         return AVERROR(EINVAL);
@@ -257,12 +238,6 @@ static int av_buffersrc_add_frame_internal(AVFilterContext *ctx,
 
     if ((ret = ctx->output_pads[0].request_frame(ctx->outputs[0])) < 0)
         return ret;
-
-    if ((flags & AV_BUFFERSRC_FLAG_PUSH)) {
-        ret = push_frame(ctx->graph);
-        if (ret < 0)
-            return ret;
-    }
 
     return 0;
 }
@@ -341,14 +316,16 @@ static av_cold int init_audio(AVFilterContext *ctx)
         return AVERROR(EINVAL);
     }
 
-    if (s->channel_layout_str) {
+    if (s->channel_layout_str || s->channel_layout) {
         int n;
 
-        s->channel_layout = av_get_channel_layout(s->channel_layout_str);
         if (!s->channel_layout) {
-            av_log(ctx, AV_LOG_ERROR, "Invalid channel layout %s.\n",
-                   s->channel_layout_str);
-            return AVERROR(EINVAL);
+            s->channel_layout = av_get_channel_layout(s->channel_layout_str);
+            if (!s->channel_layout) {
+                av_log(ctx, AV_LOG_ERROR, "Invalid channel layout %s.\n",
+                       s->channel_layout_str);
+                return AVERROR(EINVAL);
+            }
         }
         n = av_get_channel_layout_nb_channels(s->channel_layout);
         if (s->channels) {

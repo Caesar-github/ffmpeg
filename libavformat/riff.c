@@ -284,6 +284,14 @@ const AVCodecTag ff_codec_bmp_tags[] = {
     { AV_CODEC_ID_RAWVIDEO,     MKTAG('I', '4', 'A', 'B') },
     { AV_CODEC_ID_RAWVIDEO,     MKTAG('I', '4', 'F', 'L') },
     { AV_CODEC_ID_RAWVIDEO,     MKTAG('I', '4', 'F', 'B') },
+    { AV_CODEC_ID_RAWVIDEO,     MKTAG('I', '0', 'C', 'L') },
+    { AV_CODEC_ID_RAWVIDEO,     MKTAG('I', '0', 'C', 'B') },
+    { AV_CODEC_ID_RAWVIDEO,     MKTAG('I', '2', 'C', 'L') },
+    { AV_CODEC_ID_RAWVIDEO,     MKTAG('I', '2', 'C', 'B') },
+    { AV_CODEC_ID_RAWVIDEO,     MKTAG('I', '4', 'C', 'L') },
+    { AV_CODEC_ID_RAWVIDEO,     MKTAG('I', '4', 'C', 'B') },
+    { AV_CODEC_ID_RAWVIDEO,     MKTAG('I', '0', 'F', 'L') },
+    { AV_CODEC_ID_RAWVIDEO,     MKTAG('I', '0', 'F', 'B') },
     { AV_CODEC_ID_FRWU,         MKTAG('F', 'R', 'W', 'U') },
     { AV_CODEC_ID_R10K,         MKTAG('R', '1', '0', 'k') },
     { AV_CODEC_ID_R210,         MKTAG('r', '2', '1', '0') },
@@ -439,6 +447,8 @@ const AVCodecTag ff_codec_bmp_tags[] = {
     { AV_CODEC_ID_MAGICYUV,     MKTAG('M', '0', 'R', 'G') },
     { AV_CODEC_ID_MAGICYUV,     MKTAG('M', '0', 'G', '0') },
     { AV_CODEC_ID_MAGICYUV,     MKTAG('M', '0', 'Y', '2') },
+    { AV_CODEC_ID_MAGICYUV,     MKTAG('M', '2', 'R', 'A') },
+    { AV_CODEC_ID_MAGICYUV,     MKTAG('M', '2', 'R', 'G') },
     { AV_CODEC_ID_YLC,          MKTAG('Y', 'L', 'C', '0') },
     { AV_CODEC_ID_SPEEDHQ,      MKTAG('S', 'H', 'Q', '0') },
     { AV_CODEC_ID_SPEEDHQ,      MKTAG('S', 'H', 'Q', '1') },
@@ -448,7 +458,12 @@ const AVCodecTag ff_codec_bmp_tags[] = {
     { AV_CODEC_ID_SPEEDHQ,      MKTAG('S', 'H', 'Q', '5') },
     { AV_CODEC_ID_SPEEDHQ,      MKTAG('S', 'H', 'Q', '7') },
     { AV_CODEC_ID_SPEEDHQ,      MKTAG('S', 'H', 'Q', '9') },
-
+    { AV_CODEC_ID_FMVC,         MKTAG('F', 'M', 'V', 'C') },
+    { AV_CODEC_ID_SCPR,         MKTAG('S', 'C', 'P', 'R') },
+    { AV_CODEC_ID_CLEARVIDEO,   MKTAG('U', 'C', 'O', 'D') },
+    { AV_CODEC_ID_AV1,          MKTAG('A', 'V', '0', '1') },
+    { AV_CODEC_ID_MSCC,         MKTAG('M', 'S', 'C', 'C') },
+    { AV_CODEC_ID_SRGC,         MKTAG('S', 'R', 'G', 'C') },
     { AV_CODEC_ID_NONE,         0 }
 };
 

@@ -20,7 +20,7 @@ fate-ffmpeg-filter_complex: CMD = framecrc -filter_complex color=d=1:r=5 -fflags
 
 FATE_SAMPLES_FFMPEG-$(CONFIG_COLORKEY_FILTER) += fate-ffmpeg-filter_colorkey
 fate-ffmpeg-filter_colorkey: tests/data/filtergraphs/colorkey
-fate-ffmpeg-filter_colorkey: CMD = framecrc -idct simple -fflags +bitexact -flags +bitexact  -sws_flags +accurate_rnd+bitexact -i $(TARGET_SAMPLES)/cavs/cavs.mpg -fflags +bitexact -flags +bitexact -sws_flags +accurate_rnd+bitexact -i $(TARGET_SAMPLES)/lena.pnm -an -filter_complex_script $(TARGET_PATH)/tests/data/filtergraphs/colorkey -sws_flags +accurate_rnd+bitexact -fflags +bitexact -flags +bitexact -qscale 2 -vframes 10
+fate-ffmpeg-filter_colorkey: CMD = framecrc -idct simple -fflags +bitexact -flags +bitexact  -sws_flags +accurate_rnd+bitexact -i $(TARGET_SAMPLES)/cavs/cavs.mpg -fflags +bitexact -flags +bitexact -sws_flags +accurate_rnd+bitexact -i $(TARGET_SAMPLES)/lena.pnm -an -filter_complex_script $(TARGET_PATH)/tests/data/filtergraphs/colorkey -sws_flags +accurate_rnd+bitexact -fflags +bitexact -flags +bitexact -qscale 2 -frames:v 10
 
 FATE_FFMPEG-$(CONFIG_COLOR_FILTER) += fate-ffmpeg-lavfi
 fate-ffmpeg-lavfi: CMD = framecrc -lavfi color=d=1:r=5 -fflags +bitexact
@@ -50,6 +50,12 @@ fate-unknown_layout-ac3: $(AREF)
 fate-unknown_layout-ac3: CMD = md5 \
   -guess_layout_max 0 -f s16le -ac 1 -ar 44100 -i $(TARGET_PATH)/$(AREF) \
   -f ac3 -flags +bitexact -c ac3_fixed
+
+
+FATE_STREAMCOPY-$(call ALLYES, EAC3_DEMUXER MOV_MUXER) += fate-copy-trac3074
+fate-copy-trac3074: $(TARGET_SAMPLES)/eac3/csi_miami_stereo_128_spx.eac3
+fate-copy-trac3074: CMD = transcode eac3 $(TARGET_SAMPLES)/eac3/csi_miami_stereo_128_spx.eac3\
+                     mp4 "-codec copy -map 0" "-codec copy"
 
 FATE_STREAMCOPY-$(call ALLYES, MOV_DEMUXER MOV_MUXER) += fate-copy-trac236
 fate-copy-trac236: $(TARGET_SAMPLES)/mov/fcp_export8-236.mov
@@ -87,7 +93,7 @@ fate-streamcopy: $(FATE_STREAMCOPY-yes)
 FATE_SAMPLES_FFMPEG-$(call ALLYES, MOV_DEMUXER MATROSKA_MUXER) += fate-rgb24-mkv
 fate-rgb24-mkv: $(TARGET_SAMPLES)/qtrle/aletrek-rle.mov
 fate-rgb24-mkv: CMD = transcode "mov" $(TARGET_SAMPLES)/qtrle/aletrek-rle.mov\
-                      matroska "-vcodec rawvideo -pix_fmt rgb24 -allow_raw_vfw 1 -vframes 1"
+                      matroska "-vcodec rawvideo -pix_fmt rgb24 -allow_raw_vfw 1 -frames:v 1"
 
 FATE_SAMPLES_FFMPEG-$(call ALLYES, AAC_DEMUXER MOV_MUXER) += fate-adtstoasc_ticket3715
 fate-adtstoasc_ticket3715: $(TARGET_SAMPLES)/aac/foo.aac
@@ -118,3 +124,9 @@ fate-ffmpeg-bsf-remove-e: CMD = transcode "mpeg" $(TARGET_SAMPLES)/mpeg2/matrixb
 
 
 FATE_SAMPLES_FFMPEG-yes += $(FATE_STREAMCOPY-yes)
+
+FATE_TIME_BASE-$(call ALLYES, MPEGPS_DEMUXER MXF_MUXER) += fate-time_base
+fate-time_base: $(TARGET_SAMPLES)/mpeg2/dvd_single_frame.vob
+fate-time_base: CMD = md5 -i $(TARGET_SAMPLES)/mpeg2/dvd_single_frame.vob -an -sn -c:v copy -r 25 -time_base 1001:30000 -fflags +bitexact -f mxf
+
+FATE_SAMPLES_FFMPEG-yes += $(FATE_TIME_BASE-yes)

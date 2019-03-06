@@ -37,7 +37,7 @@
 
 #define SWR_CH_MAX 64
 
-typedef struct {
+typedef struct AMergeContext {
     const AVClass *class;
     int nb_inputs;
     int route[SWR_CH_MAX]; /**< channels routing, see copy_samples */
@@ -280,7 +280,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *insamples)
 
     outbuf->nb_samples     = nb_samples;
     outbuf->channel_layout = outlink->channel_layout;
-    av_frame_set_channels(outbuf, outlink->channels);
+    outbuf->channels       = outlink->channels;
 
     while (nb_samples) {
         ns = nb_samples;

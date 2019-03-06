@@ -23,6 +23,7 @@
 #include "libavutil/fifo.h"
 #include "libavutil/avassert.h"
 #include "libavutil/imgutils.h"
+#include "libavutil/opt.h"
 #include "libavutil/thread.h"
 #include "avcodec.h"
 #include "internal.h"
@@ -197,7 +198,12 @@ int ff_frame_thread_encoder_init(AVCodecContext *avctx, AVDictionary *options){
         *thread_avctx = *avctx;
         thread_avctx->priv_data = tmpv;
         thread_avctx->internal = NULL;
-        memcpy(thread_avctx->priv_data, avctx->priv_data, avctx->codec->priv_data_size);
+        if (avctx->codec->priv_class) {
+            int ret = av_opt_copy(thread_avctx->priv_data, avctx->priv_data);
+            if (ret < 0)
+                goto fail;
+        } else
+            memcpy(thread_avctx->priv_data, avctx->priv_data, avctx->codec->priv_data_size);
         thread_avctx->thread_count = 1;
         thread_avctx->active_thread_type &= ~FF_THREAD_FRAME;
 
@@ -272,15 +278,16 @@ int ff_thread_video_encode_frame(AVCodecContext *avctx, AVPacket *pkt, const AVF
         pthread_mutex_unlock(&c->task_fifo_mutex);
 
         c->task_index = (c->task_index+1) % BUFFER_SIZE;
-
-        if(!c->finished_tasks[c->finished_task_index].outdata && (c->task_index - c->finished_task_index) % BUFFER_SIZE <= avctx->thread_count)
-            return 0;
     }
 
-    if(c->task_index == c->finished_task_index)
-        return 0;
-
     pthread_mutex_lock(&c->finished_task_mutex);
+    if (c->task_index == c->finished_task_index ||
+        (frame && !c->finished_tasks[c->finished_task_index].outdata &&
+         (c->task_index - c->finished_task_index) % BUFFER_SIZE <= avctx->thread_count)) {
+            pthread_mutex_unlock(&c->finished_task_mutex);
+            return 0;
+        }
+
     while (!c->finished_tasks[c->finished_task_index].outdata) {
         pthread_cond_wait(&c->finished_task_cond, &c->finished_task_mutex);
     }

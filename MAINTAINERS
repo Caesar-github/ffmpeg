@@ -60,6 +60,7 @@ mailing lists                           Baptiste Coudurier, Lou Logan
 Google+                                 Paul B Mahol, Michael Niedermayer, Alexander Strasser
 Twitter                                 Lou Logan, Reynaldo H. Verdejo Pinochet
 Launchpad                               Timothy Gu
+ffmpeg-security                         Andreas Cadhalpun, Carl Eugen Hoyos, Clément Bœsch, Michael Niedermayer, Reimar Doeffinger, Rodger Combs, wm4
 
 
 libavutil
@@ -115,6 +116,8 @@ Generic Parts:
     lzw.*                               Michael Niedermayer
   floating point AAN DCT:
     faandct.c, faandct.h                Michael Niedermayer
+  Non-power-of-two MDCT:
+    mdct15.c, mdct15.h                  Rostislav Pehlivanov
   Golomb coding:
     golomb.c, golomb.h                  Michael Niedermayer
   motion estimation:
@@ -189,7 +192,6 @@ Codecs:
   libkvazaar.c                          Arttu Ylä-Outinen
   libopenjpeg.c                         Jaikrishnan Menon
   libopenjpegenc.c                      Michael Bradshaw
-  libschroedinger*                      David Conrad
   libtheoraenc.c                        David Conrad
   libvorbis.c                           David Conrad
   libvpx*                               James Zern
@@ -209,6 +211,7 @@ Codecs:
   msvideo1.c                            Mike Melanson
   nuv.c                                 Reimar Doeffinger
   nvenc*                                Timo Rothenpieler
+  opus*                                 Rostislav Pehlivanov
   paf.*                                 Paul B Mahol
   pcx.c                                 Ivo van Poorten
   pgssubdec.c                           Reimar Doeffinger
@@ -384,6 +387,7 @@ Muxers/Demuxers:
   avisynth.c                            Stephen Hutchinson
   avr.c                                 Paul B Mahol
   bink.c                                Peter Ross
+  boadec.c                              Michael Niedermayer
   brstm.c                               Paul B Mahol
   caf*                                  Peter Ross
   cdxl.c                                Paul B Mahol
@@ -411,7 +415,6 @@ Muxers/Demuxers:
   iss.c                                 Stefan Gehrer
   jvdec.c                               Peter Ross
   libmodplug.c                          Clément Bœsch
-  libnut.c                              Oded Shimon
   libopenmpt.c                          Josh de Kock
   lmlm4.c                               Ivo van Poorten
   lvfdec.c                              Paul B Mahol
@@ -434,7 +437,6 @@ Muxers/Demuxers:
   msnwc_tcp.c                           Ramiro Polla
   mtv.c                                 Reynaldo H. Verdejo Pinochet
   mxf*                                  Baptiste Coudurier
-  mxfdec.c                              Tomas Härdin
   nistspheredec.c                       Paul B Mahol
   nsvdec.c                              Francois Revol
   nut*                                  Michael Niedermayer
@@ -512,7 +514,7 @@ Operating systems / CPU architectures
 =====================================
 
 Alpha                                   Falk Hueffner
-MIPS                                    Nedeljko Babic
+MIPS                                    Manojkumar Bhosale
 Mac OS X / PowerPC                      Romain Dolbeau, Guillaume Poirier
 Amiga / PowerPC                         Colin Ward
 Windows MinGW                           Alex Beregszaszi, Ramiro Polla

@@ -91,14 +91,14 @@ static uint32_t softfloat_mul(uint32_t x, uint64_t mantissa)
     uint64_t h = x * (mantissa >> 32);
     h += l >> 32;
     l &= 0xffffffff;
-    l += 1 << av_log2(h >> 21);
+    l += 1LL << av_log2(h >> 21);
     h += l >> 32;
     return h >> 20;
 }
 
 static uint8_t lag_calc_zero_run(int8_t x)
 {
-    return (x << 1) ^ (x >> 7);
+    return (x * 2) ^ (x >> 7);
 }
 
 static int lag_decode_prob(GetBitContext *gb, uint32_t *value)
@@ -191,7 +191,9 @@ static int lag_read_prob_header(lag_rac *rac, GetBitContext *gb)
         }
 
         scale_factor++;
-        cumulative_target = 1 << scale_factor;
+        if (scale_factor >= 32U)
+            return AVERROR_INVALIDDATA;
+        cumulative_target = 1U << scale_factor;
 
         if (scaled_cumul_prob > cumulative_target) {
             av_log(rac->avctx, AV_LOG_ERROR,
@@ -730,6 +732,16 @@ static av_cold int lag_decode_init(AVCodecContext *avctx)
     return 0;
 }
 
+#if HAVE_THREADS
+static av_cold int lag_decode_init_thread_copy(AVCodecContext *avctx)
+{
+    LagarithContext *l = avctx->priv_data;
+    l->avctx = avctx;
+
+    return 0;
+}
+#endif
+
 static av_cold int lag_decode_end(AVCodecContext *avctx)
 {
     LagarithContext *l = avctx->priv_data;
@@ -746,6 +758,7 @@ AVCodec ff_lagarith_decoder = {
     .id             = AV_CODEC_ID_LAGARITH,
     .priv_data_size = sizeof(LagarithContext),
     .init           = lag_decode_init,
+    .init_thread_copy = ONLY_IF_THREADS_ENABLED(lag_decode_init_thread_copy),
     .close          = lag_decode_end,
     .decode         = lag_decode_frame,
     .capabilities   = AV_CODEC_CAP_DR1 | AV_CODEC_CAP_FRAME_THREADS,

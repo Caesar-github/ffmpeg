@@ -14,7 +14,7 @@ FATE_VIDEO-$(call DEMDEC, AVI, AASC) += fate-aasc
 fate-aasc: CMD = framecrc -i $(TARGET_SAMPLES)/aasc/AASC-1.5MB.AVI -pix_fmt rgb24
 
 FATE_VIDEO-$(call DEMDEC, MOV, AIC) += fate-aic
-fate-aic: CMD = framecrc -idct simple -i $(TARGET_SAMPLES)/aic/small_apple_intermediate_codec.mov -an -vframes 15
+fate-aic: CMD = framecrc -idct simple -i $(TARGET_SAMPLES)/aic/small_apple_intermediate_codec.mov -an -frames:v 15
 
 FATE_VIDEO-$(call DEMDEC, MOV, AIC) += fate-aic-oddsize
 fate-aic-oddsize: CMD = framecrc -idct simple -i $(TARGET_SAMPLES)/aic/aic_odd_dimensions.mov
@@ -107,6 +107,9 @@ fate-deluxepaint-anm: CMD = framecrc -i $(TARGET_SAMPLES)/deluxepaint-anm/INTRO1
 
 FATE_VIDEO-$(call DEMDEC, DIRAC, DIRAC) += fate-dirac
 fate-dirac: CMD = framecrc -i $(TARGET_SAMPLES)/dirac/vts.profile-main.drc
+
+FATE_VIDEO-$(call DEMDEC, DIRAC, DIRAC) += fate-dirac-low-delay
+fate-dirac-low-delay: CMD = framecrc -i $(TARGET_SAMPLES)/dirac/vts.profile-vc2-low-delay.drc
 
 FATE_DXA += fate-dxa-feeble
 fate-dxa-feeble: CMD = framecrc -i $(TARGET_SAMPLES)/dxa/meetsquid.dxa -t 2 -pix_fmt rgb24 -an
@@ -233,10 +236,10 @@ FATE_VIDEO-$(call DEMDEC, MOV, MJPEGB) += fate-mjpegb
 fate-mjpegb: CMD = framecrc -idct simple -fflags +bitexact -i $(TARGET_SAMPLES)/mjpegb/mjpegb_part.mov -an
 
 FATE_VIDEO-$(call DEMDEC, MVI, MOTIONPIXELS) += fate-motionpixels
-fate-motionpixels: CMD = framecrc -i $(TARGET_SAMPLES)/motion-pixels/INTRO-partial.MVI -an -pix_fmt rgb24 -vframes 111
+fate-motionpixels: CMD = framecrc -i $(TARGET_SAMPLES)/motion-pixels/INTRO-partial.MVI -an -pix_fmt rgb24 -frames:v 111
 
 FATE_VIDEO-$(call DEMDEC, MPEGTS, MPEG2VIDEO) += fate-mpeg2-field-enc fate-mpeg2-ticket186
-fate-mpeg2-field-enc: CMD = framecrc -flags +bitexact -idct simple -i $(TARGET_SAMPLES)/mpeg2/mpeg2_field_encoding.ts -an -vframes 30
+fate-mpeg2-field-enc: CMD = framecrc -flags +bitexact -idct simple -i $(TARGET_SAMPLES)/mpeg2/mpeg2_field_encoding.ts -an -frames:v 30
 fate-mpeg2-ticket186: CMD = framecrc -flags +bitexact -idct simple -i $(TARGET_SAMPLES)/mpeg2/t.mpg -an
 
 FATE_VIDEO-$(call DEMDEC, MPEGPS, MPEG2VIDEO) += fate-mpeg2-ticket6024

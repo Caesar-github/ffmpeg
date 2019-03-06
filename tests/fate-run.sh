@@ -24,6 +24,7 @@ size_tolerance=${14:-0}
 cmp_unit=${15:-2}
 gen=${16:-no}
 hwaccel=${17:-none}
+report_type=${18:-standard}
 
 outdir="tests/data/fate"
 outfile="${outdir}/${test}"
@@ -107,7 +108,7 @@ probegaplessinfo(){
     pktfile1="${outdir}/${test}.pkts"
     framefile1="${outdir}/${test}.frames"
     cleanfiles="$cleanfiles $pktfile1 $framefile1"
-    run ffprobe${PROGSUF} -bitexact -select_streams a -of compact -count_packets -show_entries packet=pts,dts,duration:stream=nb_read_packets -v 0 "$filename" "$@" > "$pktfile1"
+    run ffprobe${PROGSUF} -bitexact -select_streams a -of compact -count_packets -show_entries packet=pts,dts,duration,flags:stream=nb_read_packets -v 0 "$filename" "$@" > "$pktfile1"
     head -n 8 "$pktfile1"
     tail -n 9 "$pktfile1"
     run ffprobe${PROGSUF} -bitexact -select_streams a -of compact -count_frames -show_entries frame=pkt_pts,pkt_dts,best_effort_timestamp,pkt_duration,nb_samples:stream=nb_read_frames -v 0 "$filename" "$@" > "$framefile1"
@@ -141,8 +142,15 @@ crc(){
     ffmpeg "$@" -f crc -
 }
 
-md5(){
+md5pipe(){
     ffmpeg "$@" md5:
+}
+
+md5(){
+    encfile="${outdir}/${test}.out"
+    cleanfiles="$cleanfiles $encfile"
+    ffmpeg "$@" $encfile
+    do_md5sum $encfile | awk '{print $1}'
 }
 
 pcm(){
@@ -362,13 +370,17 @@ if test -e "$ref" || test $cmp = "oneline" || test $cmp = "grep" ; then
     esac
     cmperr=$?
     test $err = 0 && err=$cmperr
-    test $err = 0 || cat $cmpfile
+    if [ "$report_type" = "ignore" ]; then
+        test $err = 0 || echo "IGNORE\t${test}" && err=0 && unset sig
+    else
+        test $err = 0 || cat $cmpfile
+    fi
 else
     echo "reference file '$ref' not found"
     err=1
 fi
 
-if [ $err -eq 0 ]; then
+if [ $err -eq 0 ] && test $report_type = "standard" ; then
     unset cmpo erro
 else
     cmpo="$($base64 <$cmpfile)"

@@ -196,8 +196,13 @@ int AAC_RENAME(ff_ps_read_data)(AVCodecContext *avctx, GetBitContext *gb_host, P
 
     ps->border_position[0] = -1;
     if (ps->frame_class) {
-        for (e = 1; e <= ps->num_env; e++)
+        for (e = 1; e <= ps->num_env; e++) {
             ps->border_position[e] = get_bits(gb, 5);
+            if (ps->border_position[e] < ps->border_position[e-1]) {
+                av_log(avctx, AV_LOG_ERROR, "border_position non monotone.\n");
+                goto err;
+            }
+        }
     } else
         for (e = 1; e <= ps->num_env; e++)
             ps->border_position[e] = (e * numQMFSlots >> ff_log2_tab[ps->num_env]) - 1;
@@ -692,26 +697,17 @@ static void decorrelation(PSContext *ps, INTFLOAT (*out)[32][2], const INTFLOAT 
     for (i = 0; i < NR_PAR_BANDS[is34]; i++) {
         for (n = n0; n < nL; n++) {
             int decayed_peak;
-            int denom;
-
             decayed_peak = (int)(((int64_t)peak_decay_factor * \
                                            peak_decay_nrg[i] + 0x40000000) >> 31);
             peak_decay_nrg[i] = FFMAX(decayed_peak, power[i][n]);
-            power_smooth[i] += (power[i][n] - power_smooth[i] + 2) >> 2;
-            peak_decay_diff_smooth[i] += (peak_decay_nrg[i] - power[i][n] - \
-                                          peak_decay_diff_smooth[i] + 2) >> 2;
-            denom = peak_decay_diff_smooth[i] + (peak_decay_diff_smooth[i] >> 1);
-            if (denom > power_smooth[i]) {
-              int p = power_smooth[i];
-              while (denom < 0x40000000) {
-                denom <<= 1;
-                p <<= 1;
-              }
-              transient_gain[i][n] = p / (denom >> 16);
-            }
-            else {
-              transient_gain[i][n] = 1 << 16;
-            }
+            power_smooth[i] += (power[i][n] + 2LL - power_smooth[i]) >> 2;
+            peak_decay_diff_smooth[i] += (peak_decay_nrg[i] + 2LL - power[i][n] - \
+                                          peak_decay_diff_smooth[i]) >> 2;
+
+            if (peak_decay_diff_smooth[i]) {
+                transient_gain[i][n] = FFMIN(power_smooth[i]*43691LL / peak_decay_diff_smooth[i], 1<<16);
+            } else
+                transient_gain[i][n] = 1 << 16;
         }
     }
 #else
@@ -942,7 +938,7 @@ static void stereo_processing(PSContext *ps, INTFLOAT (*l)[32][2], INTFLOAT (*r)
             int stop  = ps->border_position[e+1];
             INTFLOAT width = Q30(1.f) / ((stop - start) ? (stop - start) : 1);
 #if USE_FIXED
-            width <<= 1;
+            width = FFMIN(2U*width, INT_MAX);
 #endif
             b = k_to_i[k];
             h[0][0] = H11[0][e][b];
@@ -974,9 +970,10 @@ static void stereo_processing(PSContext *ps, INTFLOAT (*l)[32][2], INTFLOAT (*r)
                 h_step[1][2] = AAC_MSUB31_V3(H21[1][e+1][b], h[1][2], width);
                 h_step[1][3] = AAC_MSUB31_V3(H22[1][e+1][b], h[1][3], width);
             }
-            ps->dsp.stereo_interpolate[!PS_BASELINE && ps->enable_ipdopd](
-                l[k] + start + 1, r[k] + start + 1,
-                h, h_step, stop - start);
+            if (stop - start)
+                ps->dsp.stereo_interpolate[!PS_BASELINE && ps->enable_ipdopd](
+                    l[k] + 1 + start, r[k] + 1 + start,
+                    h, h_step, stop - start);
         }
     }
 }

@@ -48,6 +48,7 @@
 #include "mathops.h"
 #include "opus.h"
 #include "opustab.h"
+#include "opus_celt.h"
 
 static const uint16_t silk_frame_duration_ms[16] = {
     10, 20, 40, 60,
@@ -62,8 +63,6 @@ static const uint16_t silk_frame_duration_ms[16] = {
 static const int silk_resample_delay[] = {
     4, 8, 11, 11, 11
 };
-
-static const uint8_t celt_band_end[] = { 13, 17, 17, 19, 21 };
 
 static int get_silk_samplerate(int config)
 {
@@ -153,14 +152,7 @@ static int opus_init_resample(OpusStreamContext *s)
 
 static int opus_decode_redundancy(OpusStreamContext *s, const uint8_t *data, int size)
 {
-    int ret;
-    enum OpusBandwidth bw = s->packet.bandwidth;
-
-    if (s->packet.mode == OPUS_MODE_SILK &&
-        bw == OPUS_BANDWIDTH_MEDIUMBAND)
-        bw = OPUS_BANDWIDTH_WIDEBAND;
-
-    ret = ff_opus_rc_dec_init(&s->redundancy_rc, data, size);
+    int ret = ff_opus_rc_dec_init(&s->redundancy_rc, data, size);
     if (ret < 0)
         goto fail;
     ff_opus_rc_dec_raw_init(&s->redundancy_rc, data + size, size);
@@ -168,7 +160,7 @@ static int opus_decode_redundancy(OpusStreamContext *s, const uint8_t *data, int
     ret = ff_celt_decode_frame(s->celt, &s->redundancy_rc,
                                s->redundancy_output,
                                s->packet.stereo + 1, 240,
-                               0, celt_band_end[s->packet.bandwidth]);
+                               0, ff_celt_band_end[s->packet.bandwidth]);
     if (ret < 0)
         goto fail;
 
@@ -279,7 +271,7 @@ static int opus_decode_frame(OpusStreamContext *s, const uint8_t *data, int size
                                    s->packet.stereo + 1,
                                    s->packet.frame_duration,
                                    (s->packet.mode == OPUS_MODE_HYBRID) ? 17 : 0,
-                                   celt_band_end[s->packet.bandwidth]);
+                                   ff_celt_band_end[s->packet.bandwidth]);
         if (ret < 0)
             return ret;
 

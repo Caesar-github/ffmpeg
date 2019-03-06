@@ -756,7 +756,7 @@ static int jpeg_probe(AVProbeData *p)
     if (state == EOI)
         return AVPROBE_SCORE_EXTENSION + 1;
     if (state == SOS)
-        return AVPROBE_SCORE_EXTENSION / 2 + 1;
+        return AVPROBE_SCORE_EXTENSION / 2;
     return AVPROBE_SCORE_EXTENSION / 8;
 }
 
@@ -873,6 +873,13 @@ static int sunrast_probe(AVProbeData *p)
     return 0;
 }
 
+static int svg_probe(AVProbeData *p)
+{
+    if (av_match_ext(p->filename, "svg") || av_match_ext(p->filename, "svgz"))
+        return AVPROBE_SCORE_EXTENSION + 1;
+    return 0;
+}
+
 static int tiff_probe(AVProbeData *p)
 {
     const uint8_t *b = p->buf;
@@ -943,6 +950,15 @@ static int pam_probe(AVProbeData *p)
     return pnm_magic_check(p, 7) ? pnm_probe(p) : 0;
 }
 
+static int xpm_probe(AVProbeData *p)
+{
+    const uint8_t *b = p->buf;
+
+    if (AV_RB64(b) == 0x2f2a2058504d202a && *(b+8) == '/')
+        return AVPROBE_SCORE_MAX - 1;
+    return 0;
+}
+
 #define IMAGEAUTO_DEMUXER(imgname, codecid)\
 static const AVClass imgname ## _class = {\
     .class_name = AV_STRINGIFY(imgname) " demuxer",\
@@ -981,5 +997,7 @@ IMAGEAUTO_DEMUXER(psd,     AV_CODEC_ID_PSD)
 IMAGEAUTO_DEMUXER(qdraw,   AV_CODEC_ID_QDRAW)
 IMAGEAUTO_DEMUXER(sgi,     AV_CODEC_ID_SGI)
 IMAGEAUTO_DEMUXER(sunrast, AV_CODEC_ID_SUNRAST)
+IMAGEAUTO_DEMUXER(svg,     AV_CODEC_ID_SVG)
 IMAGEAUTO_DEMUXER(tiff,    AV_CODEC_ID_TIFF)
 IMAGEAUTO_DEMUXER(webp,    AV_CODEC_ID_WEBP)
+IMAGEAUTO_DEMUXER(xpm,     AV_CODEC_ID_XPM)
