@@ -28,6 +28,7 @@
 #include <math.h>
 #include <limits.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "libavutil/avstring.h"
@@ -59,6 +60,9 @@
 #include "cmdutils.h"
 
 #include <assert.h>
+
+#include <drm_fourcc.h>
+#include "libavutil/hwcontext_drm.h"
 
 const char program_name[] = "ffplay";
 const int program_birth_year = 2003;
@@ -385,6 +389,7 @@ static const struct TextureFormatEntry {
     { AV_PIX_FMT_BGR32,          SDL_PIXELFORMAT_ABGR8888 },
     { AV_PIX_FMT_BGR32_1,        SDL_PIXELFORMAT_BGRA8888 },
     { AV_PIX_FMT_YUV420P,        SDL_PIXELFORMAT_IYUV },
+    { AV_PIX_FMT_NV12,           SDL_PIXELFORMAT_NV12 },
     { AV_PIX_FMT_YUYV422,        SDL_PIXELFORMAT_YUY2 },
     { AV_PIX_FMT_UYVY422,        SDL_PIXELFORMAT_UYVY },
     { AV_PIX_FMT_NONE,           SDL_PIXELFORMAT_UNKNOWN },
@@ -834,10 +839,11 @@ static int realloc_texture(SDL_Texture **texture, Uint32 new_format, int new_wid
 {
     Uint32 format;
     int access, w, h;
-    if (SDL_QueryTexture(*texture, &format, &access, &w, &h) < 0 || new_width != w || new_height != h || new_format != format) {
+    if (!*texture || SDL_QueryTexture(*texture, &format, &access, &w, &h) < 0 || new_width != w || new_height != h || new_format != format) {
         void *pixels;
         int pitch;
-        SDL_DestroyTexture(*texture);
+        if (*texture)
+            SDL_DestroyTexture(*texture);
         if (!(*texture = SDL_CreateTexture(renderer, new_format, SDL_TEXTUREACCESS_STREAMING, new_width, new_height)))
             return -1;
         if (SDL_SetTextureBlendMode(*texture, blendmode) < 0)
@@ -902,22 +908,69 @@ static void get_sdl_pix_fmt_and_blendmode(int format, Uint32 *sdl_pix_fmt, SDL_B
     }
 }
 
+static void get_avframe_info(AVFrame *frame,
+                             uint8_t *srcSlice[],
+                             int srcStride[],
+                             int *hStride,
+                             int *vStride) {
+    if (frame->format != AV_PIX_FMT_DRM_PRIME) {
+        memcpy(srcSlice, frame->data, sizeof(frame->data));
+        memcpy(srcStride, frame->linesize, sizeof(frame->linesize));
+        *hStride = frame->width;
+        *vStride = frame->height;
+    } else {
+        AVDRMFrameDescriptor *desc = (AVDRMFrameDescriptor*)frame->data[0];
+        AVDRMLayerDescriptor *layer = &desc->layers[0];
+        memset(srcSlice, 0, sizeof(frame->data));
+        memset(srcStride, 0, sizeof(frame->linesize));
+        srcSlice[0] = (uint8_t*)desc->objects[0].ptr;
+        srcSlice[1] = srcSlice[0] + layer->planes[1].offset;
+        srcStride[0] = srcStride[1] = layer->planes[0].pitch;
+        *hStride = layer->planes[0].pitch; // always nv12
+        *vStride = layer->planes[1].offset / layer->planes[0].pitch;
+    }
+}
+
+static int get_avframe_format(AVFrame *frame) {
+    int av_format = frame->format;
+    if (av_format == AV_PIX_FMT_DRM_PRIME) {
+        AVDRMFrameDescriptor *desc = (AVDRMFrameDescriptor*)frame->data[0];
+        AVDRMLayerDescriptor *layer = &desc->layers[0];
+        switch (layer->format) {
+            case DRM_FORMAT_NV12: return AV_PIX_FMT_NV12;
+#ifdef DRM_FORMAT_NV12_10
+            case DRM_FORMAT_NV12_10: return AV_PIX_FMT_P010LE;
+#endif
+            default:
+                av_log(NULL, AV_LOG_FATAL, "Unknown DRM Format: %d\n",
+                       layer->format);
+        }
+    }
+    return av_format;
+}
+
 static int upload_texture(SDL_Texture **tex, AVFrame *frame, struct SwsContext **img_convert_ctx) {
     int ret = 0;
     Uint32 sdl_pix_fmt;
     SDL_BlendMode sdl_blendmode;
-    get_sdl_pix_fmt_and_blendmode(frame->format, &sdl_pix_fmt, &sdl_blendmode);
-    if (realloc_texture(tex, sdl_pix_fmt == SDL_PIXELFORMAT_UNKNOWN ? SDL_PIXELFORMAT_ARGB8888 : sdl_pix_fmt, frame->width, frame->height, sdl_blendmode, 0) < 0)
+    int av_format = get_avframe_format(frame);
+    uint8_t *srcSlice[AV_NUM_DATA_POINTERS] = { NULL };
+    int srcStride[AV_NUM_DATA_POINTERS] = { 0 };
+    int tex_w, tex_h;
+
+    get_avframe_info(frame, srcSlice, srcStride, &tex_w, &tex_h);
+    get_sdl_pix_fmt_and_blendmode(av_format, &sdl_pix_fmt, &sdl_blendmode);
+    if (realloc_texture(tex, sdl_pix_fmt == SDL_PIXELFORMAT_UNKNOWN ? SDL_PIXELFORMAT_ARGB8888 : sdl_pix_fmt, tex_w, tex_h, sdl_blendmode, 0) < 0)
         return -1;
     switch (sdl_pix_fmt) {
         case SDL_PIXELFORMAT_UNKNOWN:
             /* This should only happen if we are not using avfilter... */
             *img_convert_ctx = sws_getCachedContext(*img_convert_ctx,
-                frame->width, frame->height, frame->format, frame->width, frame->height,
+                frame->width, frame->height, av_format, frame->width, frame->height,
                 AV_PIX_FMT_BGRA, sws_flags, NULL, NULL, NULL);
             if (*img_convert_ctx != NULL) {
-                uint8_t *pixels[4];
-                int pitch[4];
+                uint8_t *pixels[4] = { NULL };
+                int pitch[4] = { 0 };
                 if (!SDL_LockTexture(*tex, NULL, (void **)pixels, pitch)) {
                     sws_scale(*img_convert_ctx, (const uint8_t * const *)frame->data, frame->linesize,
                               0, frame->height, pixels, pitch);
@@ -926,6 +979,16 @@ static int upload_texture(SDL_Texture **tex, AVFrame *frame, struct SwsContext *
             } else {
                 av_log(NULL, AV_LOG_FATAL, "Cannot initialize the conversion context\n");
                 ret = -1;
+            }
+            break;
+        case SDL_PIXELFORMAT_NV12:
+            {
+                if (srcStride[0] > 0 && srcStride[1] > 0) {
+                    ret = SDL_UpdateTexture(*tex, NULL, srcSlice[0], srcStride[0]);
+                } else {
+                    av_log(NULL, AV_LOG_ERROR, "TODO: negative linesizes are not supported.\n");
+                    return -1;
+                }
             }
             break;
         case SDL_PIXELFORMAT_IYUV:
@@ -957,7 +1020,7 @@ static void video_image_display(VideoState *is)
 {
     Frame *vp;
     Frame *sp = NULL;
-    SDL_Rect rect;
+    SDL_Rect rect, src_rect;
 
     vp = frame_queue_peek_last(&is->pictq);
     if (is->subtitle_st) {
@@ -1007,6 +1070,10 @@ static void video_image_display(VideoState *is)
 
     calculate_display_rect(&rect, is->xleft, is->ytop, is->width, is->height, vp->width, vp->height, vp->sar);
 
+    src_rect.x = 0;
+    src_rect.y = 0;
+    src_rect.w = vp->frame->width;
+    src_rect.h = vp->frame->height;
     if (!vp->uploaded) {
         if (upload_texture(&is->vid_texture, vp->frame, &is->img_convert_ctx) < 0)
             return;
@@ -1014,7 +1081,7 @@ static void video_image_display(VideoState *is)
         vp->flip_v = vp->frame->linesize[0] < 0;
     }
 
-    SDL_RenderCopyEx(renderer, is->vid_texture, NULL, &rect, 0, NULL, vp->flip_v ? SDL_FLIP_VERTICAL : 0);
+    SDL_RenderCopyEx(renderer, is->vid_texture, &src_rect, &rect, 0, NULL, vp->flip_v ? SDL_FLIP_VERTICAL : 0);
     if (sp) {
 #if USE_ONEPASS_SUBTITLE_RENDER
         SDL_RenderCopy(renderer, is->sub_texture, NULL, &rect);
@@ -1468,7 +1535,7 @@ static void stream_seek(VideoState *is, int64_t pos, int64_t rel, int seek_by_by
 static void stream_toggle_pause(VideoState *is)
 {
     if (is->paused) {
-        is->frame_timer += av_gettime_relative() / 1000000.0 - is->vidclk.last_updated;
+        is->frame_timer = av_gettime_relative() / 1000000.0; // make play immediately
         if (is->read_pause_return != AVERROR(ENOSYS)) {
             is->vidclk.paused = 0;
         }
@@ -2131,6 +2198,9 @@ static int video_thread(void *arg)
     }
 
     for (;;) {
+#if CONFIG_AVFILTER
+        bool support_avfilter;
+#endif
         ret = get_video_frame(is, frame);
         if (ret < 0)
             goto the_end;
@@ -2138,11 +2208,16 @@ static int video_thread(void *arg)
             continue;
 
 #if CONFIG_AVFILTER
-        if (   last_w != frame->width
+        // ffmpeg avfilter do not support drm fmt.
+        // As avfilter will modify pixels, duplicate a intermediate frame
+        // if wanna support avfilter for drm fmt.
+        support_avfilter = (frame->format != AV_PIX_FMT_DRM_PRIME);
+        if (support_avfilter
+            && (last_w != frame->width
             || last_h != frame->height
             || last_format != frame->format
             || last_serial != is->viddec.pkt_serial
-            || last_vfilter_idx != is->vfilter_idx) {
+            || last_vfilter_idx != is->vfilter_idx)) {
             av_log(NULL, AV_LOG_DEBUG,
                    "Video frame changed from size:%dx%d format:%s serial:%d to size:%dx%d format:%s serial:%d\n",
                    last_w, last_h,
@@ -2168,11 +2243,14 @@ static int video_thread(void *arg)
             frame_rate = av_buffersink_get_frame_rate(filt_out);
         }
 
+        if (filt_in) {
         ret = av_buffersrc_add_frame(filt_in, frame);
         if (ret < 0)
             goto the_end;
+        }
 
         while (ret >= 0) {
+            if (filt_out) {
             is->frame_last_returned_time = av_gettime_relative() / 1000000.0;
 
             ret = av_buffersink_get_frame_flags(filt_out, frame, 0);
@@ -2187,12 +2265,15 @@ static int video_thread(void *arg)
             if (fabs(is->frame_last_filter_delay) > AV_NOSYNC_THRESHOLD / 10.0)
                 is->frame_last_filter_delay = 0;
             tb = av_buffersink_get_time_base(filt_out);
+            }
 #endif
             duration = (frame_rate.num && frame_rate.den ? av_q2d((AVRational){frame_rate.den, frame_rate.num}) : 0);
             pts = (frame->pts == AV_NOPTS_VALUE) ? NAN : frame->pts * av_q2d(tb);
             ret = queue_picture(is, frame, pts, duration, frame->pkt_pos, is->viddec.pkt_serial);
             av_frame_unref(frame);
 #if CONFIG_AVFILTER
+           if (!filt_out)
+               break;
         }
 #endif
 
@@ -2235,6 +2316,11 @@ static int subtitle_thread(void *arg)
             /* now we can update the picture count */
             frame_queue_push(&is->subpq);
         } else if (got_subtitle) {
+            if (arg) {
+                av_log(NULL, AV_LOG_WARNING,
+                       "ffplay only support graphics subtitle\n");
+                arg = NULL;
+            }
             avsubtitle_free(&sp->sub);
         }
     }

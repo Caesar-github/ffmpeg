@@ -1513,7 +1513,14 @@ static void FUNC(put_hevc_epel_bi_w_hv)(uint8_t *_dst, ptrdiff_t _dststride, uin
 #define TQ2 pix[2  * xstride + 3 * ystride]
 #define TQ3 pix[3  * xstride + 3 * ystride]
 
-static void FUNC(hevc_loop_filter_luma)(uint8_t *_pix,
+// Blackfin gcc 6.1.x fails with
+// unable to find a register to spill in class CCREGS
+#if defined(__bfin__)
+#define disable_opt __attribute__ ((optimize("O1")))
+#else
+#define disable_opt 
+#endif
+static void disable_opt FUNC(hevc_loop_filter_luma)(uint8_t *_pix,
                                         ptrdiff_t _xstride, ptrdiff_t _ystride,
                                         int beta, int *_tc,
                                         uint8_t *_no_p, uint8_t *_no_q)

@@ -1098,6 +1098,8 @@ typedef struct RcOverride{
  */
 #define AV_CODEC_CAP_LOSSLESS         0x80000000
 
+#define AV_CODEC_CAP_HARDWARE            (1 << 18)
+
 
 #if FF_API_WITHOUT_PREFIX
 /**

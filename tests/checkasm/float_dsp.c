@@ -154,6 +154,20 @@ static void test_vector_fmac_scalar(const float *src0, const float *src1, const 
     bench_new(odst, src0, src1[0], LEN);
 }
 
+#if defined(__i386__) && !defined(__SSE_MATH__)
+static inline unsigned short get_x86_fpcw(void)
+{
+    unsigned short fpcw;
+    __asm__ volatile ("fstcw %0":"=m"(fpcw));
+    return fpcw;
+}
+
+static inline void set_x86_fpcw(unsigned short fpcw)
+{
+    __asm__ volatile ("fldcw %0"::"m"(fpcw));
+}
+#endif
+
 static void test_vector_dmul_scalar(const double *src0, const double *src1)
 {
     LOCAL_ALIGNED_32(double, cdst, [LEN]);
@@ -162,8 +176,23 @@ static void test_vector_dmul_scalar(const double *src0, const double *src1)
 
     declare_func(void, double *dst, const double *src, double mul, int len);
 
+#if defined(__i386__) && !defined(__SSE_MATH__)
+    /*
+     * On x86, if the C code computes the multiplcations using the x87 FPU, and
+     * the optimized version computes them using SSE, results may be different.
+     *
+     * Workaround this by forcing the x87 FPU to round to double precision by
+     * setting the FPCW register.
+     */
+
+    unsigned short old_fpcw = get_x86_fpcw();
+    set_x86_fpcw(0x27F);
+#endif
     call_ref(cdst, src0, src1[0], LEN);
     call_new(odst, src0, src1[0], LEN);
+#if defined(__i386__) && !defined(__SSE_MATH__)
+    set_x86_fpcw(old_fpcw);
+#endif
     for (i = 0; i < LEN; i++) {
         if (!double_near_abs_eps(cdst[i], odst[i], DBL_EPSILON)) {
             fprintf(stderr, "%d: %- .12f - %- .12f = % .12g\n", i,

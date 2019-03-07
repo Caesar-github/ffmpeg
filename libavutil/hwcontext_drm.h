@@ -51,6 +51,10 @@ typedef struct AVDRMObjectDescriptor {
      */
     int fd;
     /**
+     * DRM PRIME mapped virtual ptr for above fd.
+     */
+    void *ptr;
+    /**
      * Total size of the object.
      *
      * (This includes any parts not which do not contain image data.)
