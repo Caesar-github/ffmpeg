@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include <drm_fourcc.h>
+#include <libdrm/drm_fourcc.h>
 #include <pthread.h>
 #include <rockchip/mpp_buffer.h>
 #include <rockchip/rk_mpi.h>
@@ -37,9 +37,9 @@
 #include "libavutil/imgutils.h"
 #include "libavutil/log.h"
 
-#define RECEIVE_FRAME_TIMEOUT   100
+#define RECEIVE_FRAME_TIMEOUT   10
 #define FRAMEGROUP_MAX_FRAMES   16
-#define INPUT_MAX_PACKETS       4
+#define INPUT_MAX_PACKETS       40
 
 typedef struct {
     MppCtx ctx;
@@ -505,14 +505,15 @@ static int rkmpp_receive_frame(AVCodecContext *avctx, AVFrame *frame)
 
     if (!decoder->eos_reached) {
         // we get the available slots in decoder
-        ret = decoder->mpi->control(decoder->ctx, MPP_DEC_GET_STREAM_COUNT, &usedslots);
-        if (ret != MPP_OK) {
-            av_log(avctx, AV_LOG_ERROR, "Failed to get decoder used slots (code = %d).\n", ret);
-            return ret;
-        }
+        // ret = decoder->mpi->control(decoder->ctx, MPP_DEC_GET_STREAM_COUNT, &usedslots);
+        // if (ret != MPP_OK) {
+        //    av_log(avctx, AV_LOG_ERROR, "Failed to get decoder used slots (code = %d).\n", ret);
+        //    return ret;
+        // }
+        // av_log(avctx, AV_LOG_ERROR, "(usedslots = %d).\n", usedslots);
 
-        freeslots = INPUT_MAX_PACKETS - usedslots;
-        if (freeslots > 0) {
+        // freeslots = INPUT_MAX_PACKETS - usedslots;
+        if (1) { // freeslots > 0) {
             ret = ff_decode_get_packet(avctx, &pkt);
             if (ret < 0 && ret != AVERROR_EOF) {
                 return ret;
@@ -528,8 +529,8 @@ static int rkmpp_receive_frame(AVCodecContext *avctx, AVFrame *frame)
         }
 
         // make sure we keep decoder full
-        if (freeslots > 1)
-            return AVERROR(EAGAIN);
+        // if (freeslots == INPUT_MAX_PACKETS)
+        //    return AVERROR(EAGAIN);
     }
 
     return rkmpp_retrieve_frame(avctx, frame);
