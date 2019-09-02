@@ -87,8 +87,7 @@ CONFIG := --prefix=/usr \
 	--enable-openal \
 	--enable-opengl \
 	--enable-sdl2 \
-	--enable-version3 \
-	--enable-rkmpp
+	--enable-version3
 
 # The standard configuration only uses the shared CONFIG.
 CONFIG_standard = --enable-shared
