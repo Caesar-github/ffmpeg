@@ -57,6 +57,9 @@ typedef struct {
 
     AVBufferRef *frames_ref;
     AVBufferRef *device_ref;
+
+    AVBufferPool *pool;
+    int pool_size;
 } RKMPPDecoder;
 
 typedef struct {
@@ -132,6 +135,11 @@ static int rkmpp_write_data(AVCodecContext *avctx, uint8_t *buffer, int size, in
 static int rkmpp_close_decoder(AVCodecContext *avctx)
 {
     RKMPPDecodeContext *rk_context = avctx->priv_data;
+    RKMPPDecoder *decoder = (RKMPPDecoder *)rk_context->decoder_ref->data;
+
+    if (decoder->pool)
+        av_buffer_pool_uninit(&decoder->pool);
+
     av_buffer_unref(&rk_context->decoder_ref);
     return 0;
 }
@@ -488,8 +496,42 @@ static int rkmpp_retrieve_frame(AVCodecContext *avctx, AVFrame *frame)
         buffer = mpp_frame_get_buffer(mppframe);
         if (buffer) {
             // drm_prime does support internal frame allocation.
-            if (avctx->pix_fmt != AV_PIX_FMT_DRM_PRIME)
-                ff_get_buffer(avctx, frame, 0);
+            if (avctx->pix_fmt != AV_PIX_FMT_DRM_PRIME) {
+                if (avctx->get_buffer2 != avcodec_default_get_buffer2) {
+                    ff_get_buffer(avctx, frame, 0);
+                } else {
+                    // the avcodec_default_get_buffer2 would use different
+                    // buffers for planes, let's alloc config buffer instead.
+                    // TODO: support setting y/u/v address in librga?
+                    // TODO: or replace with custom get_buffer2
+                    int size = mpp_frame_get_buf_size(mppframe);
+                    int hstride = mpp_frame_get_hor_stride(mppframe);
+                    int vstride = mpp_frame_get_ver_stride(mppframe);
+
+                    if (decoder->pool_size != size) {
+                        if (decoder->pool)
+                            av_buffer_pool_uninit(&decoder->pool);
+
+                        decoder->pool = av_buffer_pool_init(size, NULL);
+                        decoder->pool_size = size;
+                    }
+
+                    // free old buffers
+                    av_buffer_unref(&frame->buf[0]);
+                    av_buffer_unref(&frame->buf[1]);
+                    av_buffer_unref(&frame->buf[2]);
+
+                    frame->buf[0] = av_buffer_pool_get(decoder->pool);
+
+                    frame->linesize[0] = hstride;
+                    frame->linesize[1] = hstride / 2;
+                    frame->linesize[2] = hstride / 2;
+
+                    frame->data[0] = frame->buf[0]->data;
+                    frame->data[1] = frame->data[0] + hstride * vstride;
+                    frame->data[2] = frame->data[1] + hstride * vstride / 4;
+                }
+            }
 
             // setup general frame fields
             frame->format           = avctx->pix_fmt;
