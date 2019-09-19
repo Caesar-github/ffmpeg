@@ -102,7 +102,15 @@ CONFIG := --prefix=/usr \
 	--enable-omx \
 	--enable-openal \
 	--enable-opengl \
-	--enable-sdl2
+	--enable-sdl2 \
+	--enable-version3 \
+	--enable-rkmpp \
+	--enable-librga \
+	--disable-decoder=h264_v4l2m2m \
+	--disable-v4l2_m2m \
+	--disable-decoder=vp8_v4l2m2m \
+	--disable-decoder=mpeg2_v4l2m2m \
+	--disable-decoder=mpeg4_v4l2m2m
 
 # The standard configuration only uses the shared CONFIG.
 CONFIG_standard = --enable-shared
