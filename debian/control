@@ -20,8 +20,6 @@ Build-Depends-Indep:
 # needed to create the CSS files for the HTML manuals
  node-less
 Build-Depends:
-# needed for dh
- debhelper (>= 11~),
 # for build-profile support
  dpkg-dev (>= 1.17.14),
 # --enable-libflite
@@ -30,8 +28,6 @@ Build-Depends:
  frei0r-plugins-dev <!pkg.ffmpeg.stage1>,
 # --enable-ladspa
  ladspa-sdk,
-# --enable-libaom
- libaom-dev,
 # --enable-libass
  libass-dev,
 # --enable-libbluray
@@ -82,8 +78,6 @@ Build-Depends:
  liblzma-dev,
 # --enable-libmp3lame
  libmp3lame-dev,
-# --enable-libmysofa
- libmysofa-dev,
 # --enable-openal
  libopenal-dev,
 # --enable-omx
@@ -131,8 +125,6 @@ Build-Depends:
  libva-dev (>= 1.3) [!hurd-any],
 # autodetected: hwaccels 'h263_vdpau, mpeg2_vdpau, vc1_vdpau, h264_vdpau, mpeg4_vdpau, wmv3_vdpau, mpeg1_vdpau', decoders 'h264_vdpau, mpeg1_vdpau, mpeg4_vdpau, mpeg_vdpau, vc1_vdpau, wmv3_vdpau'
  libvdpau-dev,
-# --enable-libvidstab
- libvidstab-dev,
 # --enable-libvo_amrwbenc
  libvo-amrwbenc-dev,
 # --enable-libvorbis
