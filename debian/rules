@@ -270,10 +270,8 @@ override_dh_auto_build-arch:
 		dh_auto_build -a --sourcedirectory=debian/"$$flavor" || (cat debian/"$$flavor"/config.log && exit 1); \
 	done
 
-# Set the library path for the dynamic linker, because the tests otherwise don't find the libraries.
+# No tests
 override_dh_auto_test-arch:
-	export LD_LIBRARY_PATH="libavcodec:libavdevice:libavfilter:libavformat:libavresample:libavutil:libpostproc:libswresample:libswscale"; \
-		dh_auto_test -a --sourcedirectory=debian/standard -- -k
 
 # No tests for indep build.
 override_dh_auto_test-indep:
