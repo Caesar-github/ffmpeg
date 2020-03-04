@@ -14,10 +14,7 @@ include /usr/share/dpkg/architecture.mk
 # Ubuntu ld adds -Bsymbolic-functions by default, but that prevents FFmpeg from building.
 export DEB_LDFLAGS_MAINT_STRIP=-Wl,-Bsymbolic-functions
 
-# Package name for the extra flavor.
-SHLIB_PKGS := $(shell sed -nr '/extra/! s/^Package:[[:space:]]*(lib.*[0-9]+)[[:space:]]*$$/\1/p' debian/control)
-EXTRA_PKGS := $(shell sed -nr 's/^Package:[[:space:]]*(.*extra[0-9]+)[[:space:]]*$$/\1/p' debian/control)
-FLAVORS = standard extra static
+FLAVORS = standard
 
 # Enable as many features as possible, as long as the result is still GPLv2+ (a GPLv3+ variant is built as libavcodec-extra/libavfilter-extra flavor).
 # The following flags (and build-dependencies) are not added, because they would require a libavformat-extra flavor:
@@ -99,23 +96,7 @@ CONFIG := --prefix=/usr \
 	--enable-sdl2
 
 # The standard configuration only uses the shared CONFIG.
-CONFIG_standard = --enable-shared
-
-# With these enabled, resulting binaries are effectively licensed as GPLv3+.
-CONFIG_extra = --enable-shared \
-	--enable-version3 \
-	--disable-doc \
-	--disable-programs \
-	--enable-liblensfun \
-	--enable-libopencore_amrnb \
-	--enable-libopencore_amrwb \
-	--enable-libtesseract \
-	--enable-libvo_amrwbenc
-
-# The static libraries should not be built with PIC.
-CONFIG_static = --disable-pic \
-	--disable-doc \
-	--disable-programs
+CONFIG_standard = --enable-shared --disable-doc
 
 # Disable optimizations if requested.
 ifneq (,$(filter $(DEB_BUILD_OPTIONS),noopt))
@@ -148,20 +129,6 @@ else
 	CONFIG += --enable-chromaprint \
 		--enable-frei0r \
 		--enable-libx264
-endif
-
-# Disable altivec optimizations on powerpc, because they are not always available on this architecture.
-ifeq ($(DEB_HOST_ARCH),powerpc)
-	CONFIG += --disable-altivec
-	# Build an altivec flavor of the libraries on powerpc.
-	# This works around the problem that runtime cpu detection on powerpc currently does not work,
-	# because, if altivec is enabled, all files are build with '-maltivec' so that the compiler inserts altivec instructions, wherever it likes.
-	CONFIG_altivec = --enable-shared \
-		--enable-altivec \
-		--disable-doc \
-		--disable-programs
-	CONFIG_altivec-extra = $(CONFIG_altivec) $(CONFIG_extra)
-	FLAVORS += altivec altivec-extra
 endif
 
 # Disable assembly optimizations on x32, because they don't work (yet).
@@ -227,16 +194,6 @@ override_dh_auto_configure:
 override_dh_auto_clean:
 	$(foreach flavor,$(FLAVORS),[ ! -d debian/$(flavor) ] || rm -r debian/$(flavor);)
 
-# Create doxygen documentation:
-override_dh_auto_build-indep:
-	dh_auto_build -i --sourcedirectory=debian/standard -- apidoc documentation
-	# Create the minified CSS files.
-	#  Due to https://github.com/nodejs/node/issues/14752 where nodejs will
-	#  leave set O_NONBLOCK on stderr, we pipe stderr through cat which will
-	#  create a temporary pipe so this doesn't break the rest of the build.
-	#  See: #895154
-	(lessc debian/missing-sources/ffmpeg-web/src/less/style.less | cleancss > debian/standard/doc/style.min.css) 2>&1 | cat >&2
-
 override_dh_auto_build-arch:
 	# Copy built object files to avoid building them again for the extra flavor.
 	# Build qt-faststart here, to make it possible to build with 'nocheck'.
@@ -269,19 +226,8 @@ ifeq ($(DEB_HOST_ARCH),powerpc)
 	install -d debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/altivec
 	install -m 644 debian/altivec/*/*.so.* debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/altivec
 endif
-	dh_auto_install -a --sourcedirectory=debian/extra --destdir=debian/tmp/extra
-ifeq ($(DEB_HOST_ARCH),powerpc)
-	install -d debian/tmp/extra/usr/lib/$(DEB_HOST_MULTIARCH)/altivec
-	install -m 644 debian/altivec-extra/*/*.so.* debian/tmp/extra/usr/lib/$(DEB_HOST_MULTIARCH)/altivec
-endif
-	# Use the static libraries from the --disable-pic build
-	install -m 644 debian/static/*/lib*.a debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)
-
-override_dh_auto_install-indep:
-	$(MAKE) -C debian/standard DESTDIR=$(CURDIR)/debian/tmp install-doc install-examples
 
 override_dh_install:
-	dh_install $(addprefix -p,$(EXTRA_PKGS)) --sourcedir=debian/tmp/extra
 	dh_install --remaining-packages
 
 override_dh_shlibdeps:
