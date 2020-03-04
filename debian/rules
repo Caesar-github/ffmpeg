@@ -30,9 +30,7 @@ FLAVORS = standard extra static
 #   --enable-libklvanc
 #   --enable-libkvazaar
 #   --enable-libmfx
-#   --enable-libopenh264
-#   --enable-libsrt
-#   --enable-libtensorflow          (only in experimental at the moment)
+#   --enable-libtensorflow
 #   --enable-libvmaf
 #   --enable-libxavs2
 #   --enable-libxavs
@@ -209,6 +207,12 @@ endif
 
 # Compat with Debian Stretch
 CONFIG += --disable-libaom --disable-libmysofa --disable-libvidstab
+
+# HACKS for rkmpp
+CONFIG += --enable-libdrm --enable-librga --enable-rkmpp --enable-version3 \
+	--disable-libopenh264 --disable-vaapi --disable-vdpau \
+	--disable-decoder=h264_v4l2m2m --disable-decoder=vp8_v4l2m2m \
+	--disable-decoder=mpeg2_v4l2m2m --disable-decoder=mpeg4_v4l2m2m
 
 # Use the default debhelper scripts, where possible.
 %:
