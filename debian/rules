@@ -58,7 +58,6 @@ CONFIG := --prefix=/usr \
 	--enable-avisynth \
 	--enable-gnutls \
 	--enable-ladspa \
-	--enable-libaom \
 	--enable-libass \
 	--enable-libbluray \
 	--enable-libbs2b \
@@ -73,7 +72,6 @@ CONFIG := --prefix=/usr \
 	--enable-libgsm \
 	--enable-libjack \
 	--enable-libmp3lame \
-	--enable-libmysofa \
 	--enable-libopenjpeg \
 	--enable-libopenmpt \
 	--enable-libopus \
@@ -87,7 +85,6 @@ CONFIG := --prefix=/usr \
 	--enable-libssh \
 	--enable-libtheora \
 	--enable-libtwolame \
-	--enable-libvidstab \
 	--enable-libvorbis \
 	--enable-libvpx \
 	--enable-libwavpack \
@@ -209,6 +206,9 @@ ifneq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
 	CONFIG += --cross-prefix=$(DEB_HOST_GNU_TYPE)- \
 		--target-os=$(DEB_HOST_ARCH_OS)
 endif
+
+# Compat with Debian Stretch
+CONFIG += --disable-libaom --disable-libmysofa --disable-libvidstab
 
 # Use the default debhelper scripts, where possible.
 %:
