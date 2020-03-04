@@ -31,7 +31,6 @@ FLAVORS = standard extra static
 #   --enable-libklvanc
 #   --enable-libkvazaar
 #   --enable-libmfx
-#   --enable-libopenh264
 #   --enable-libtensorflow
 #   --enable-libvmaf
 #   --enable-libxavs2
@@ -221,6 +220,12 @@ ifneq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
 	CONFIG += --cross-prefix=$(DEB_HOST_GNU_TYPE)- \
 		--target-os=$(DEB_HOST_ARCH_OS)
 endif
+
+# HACKS for rkmpp
+CONFIG += --enable-libdrm --enable-librga --enable-rkmpp --enable-version3 \
+	--disable-libopenh264 --disable-vaapi --disable-vdpau \
+	--disable-decoder=h264_v4l2m2m --disable-decoder=vp8_v4l2m2m \
+	--disable-decoder=mpeg2_v4l2m2m --disable-decoder=mpeg4_v4l2m2m
 
 # Use the default debhelper scripts, where possible.
 %:
