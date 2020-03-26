@@ -94,7 +94,7 @@ static uint32_t rkmpp_get_frameformat(MppFrameFormat mppformat)
     }
 }
 
-static int rkmpp_accept_packet(AVCodecContext *avctx)
+static int rkmpp_get_usedslots(AVCodecContext *avctx)
 {
     RKMPPDecodeContext *rk_context = avctx->priv_data;
     RKMPPDecoder *decoder = (RKMPPDecoder *)rk_context->decoder_ref->data;
@@ -108,6 +108,13 @@ static int rkmpp_accept_packet(AVCodecContext *avctx)
                    "Failed to get decoder used slots (code = %d).\n", ret);
             return 1;
     }
+
+    return usedslots;
+}
+
+static int rkmpp_accept_packet(AVCodecContext *avctx)
+{
+    RK_S32 usedslots = rkmpp_get_usedslots(avctx);
 
     return INPUT_MAX_PACKETS > usedslots;
 }
@@ -417,17 +424,22 @@ static int rkmpp_retrieve_frame(AVCodecContext *avctx, AVFrame *frame)
     RKMPPFrameContext *framecontext = NULL;
     AVBufferRef *framecontextref = NULL;
     int ret;
-    MppFrame mppframe = NULL;
-    MppBuffer buffer = NULL;
+    MppFrame mppframe;
+    MppBuffer buffer;
     AVDRMFrameDescriptor *desc = NULL;
     AVDRMLayerDescriptor *layer = NULL;
     int mode;
     MppFrameFormat mppformat;
     uint32_t drmformat;
 
+retry:
+    mppframe = NULL;
+    buffer = NULL;
+
     ret = decoder->mpi->decode_get_frame(decoder->ctx, &mppframe);
     if (ret != MPP_OK && ret != MPP_ERR_TIMEOUT) {
         av_log(avctx, AV_LOG_ERROR, "Failed to get a frame from MPP (code = %d)\n", ret);
+        ret = AVERROR_UNKNOWN;
         goto fail;
     }
 
@@ -470,9 +482,10 @@ static int rkmpp_retrieve_frame(AVCodecContext *avctx, AVFrame *frame)
             if (ret < 0)
                 goto fail;
 
-            // here decoder is fully initialized, we need to feed it again with data
-            ret = AVERROR(EAGAIN);
-            goto fail;
+            if (mppframe)
+                mpp_frame_deinit(&mppframe);
+
+            goto retry;
         } else if (mpp_frame_get_eos(mppframe)) {
             av_log(avctx, AV_LOG_DEBUG, "Received a EOS frame.\n");
             decoder->eos_reached = 1;
@@ -614,15 +627,18 @@ static int rkmpp_retrieve_frame(AVCodecContext *avctx, AVFrame *frame)
             return 0;
         } else {
             av_log(avctx, AV_LOG_ERROR, "Failed to retrieve the frame buffer, frame is dropped (code = %d)\n", ret);
-            mpp_frame_deinit(&mppframe);
+            ret = AVERROR(EAGAIN);
+            goto fail;
         }
     } else if (decoder->eos_reached) {
         return AVERROR_EOF;
     } else if (ret == MPP_ERR_TIMEOUT) {
         av_log(avctx, AV_LOG_DEBUG, "Timeout when trying to get a frame from MPP\n");
+        ret = AVERROR(EAGAIN);
+        goto fail;
     }
 
-    return AVERROR(EAGAIN);
+    return AVERROR_UNKNOWN;
 
 out:
 fail:
@@ -637,6 +653,12 @@ fail:
 
     if (desc)
         av_free(desc);
+
+    if (ret == AVERROR(EAGAIN)) {
+        // there're packets pending
+        if (rkmpp_get_usedslots(avctx))
+            goto retry;
+    }
 
     return ret;
 }
