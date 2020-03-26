@@ -25,6 +25,7 @@
 #include <rockchip/rk_mpi.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #include "avcodec.h"
 #include "decode.h"
@@ -46,6 +47,8 @@
 #define FRAMEGROUP_MAX_FRAMES   16
 #define INPUT_MAX_PACKETS       4
 
+#define FPS_UPDATE_INTERVAL     120
+
 typedef struct {
     MppCtx ctx;
     MppApi *mpi;
@@ -59,6 +62,11 @@ typedef struct {
 
     AVBufferPool *pool;
     int pool_size;
+
+    char print_fps;
+
+    uint64_t last_fps_time;
+    uint64_t frames;
 } RKMPPDecoder;
 
 typedef struct {
@@ -194,6 +202,7 @@ static int rkmpp_init_decoder(AVCodecContext *avctx)
     RKMPPDecodeContext *rk_context = avctx->priv_data;
     RKMPPDecoder *decoder = NULL;
     MppCodingType codectype = MPP_VIDEO_CodingUnused;
+    char *env;
     int ret;
 
     avctx->pix_fmt = ff_get_format(avctx, avctx->codec->pix_fmts);
@@ -204,6 +213,10 @@ static int rkmpp_init_decoder(AVCodecContext *avctx)
         ret = AVERROR(ENOMEM);
         goto fail;
     }
+
+    env = getenv("FFMPEG_RKMPP_LOG_FPS");
+    if (env != NULL)
+        decoder->print_fps = !!atoi(env);
 
     rk_context->decoder_ref = av_buffer_create((uint8_t *)decoder, sizeof(*decoder), rkmpp_release_decoder,
                                                NULL, AV_BUFFER_FLAG_READONLY);
@@ -416,6 +429,36 @@ bail:
     return -1;
 }
 
+static void rkmpp_update_fps(AVCodecContext *avctx)
+{
+    RKMPPDecodeContext *rk_context = avctx->priv_data;
+    RKMPPDecoder *decoder = (RKMPPDecoder *)rk_context->decoder_ref->data;
+    struct timeval tv;
+    uint64_t curr_time;
+    float fps;
+
+    if (!decoder->print_fps)
+        return;
+
+    if (!decoder->last_fps_time) {
+        gettimeofday(&tv, NULL);
+        decoder->last_fps_time = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+    }
+
+    if (++decoder->frames % FPS_UPDATE_INTERVAL)
+        return;
+
+    gettimeofday(&tv, NULL);
+    curr_time = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+
+    fps = 1000.0f * FPS_UPDATE_INTERVAL / (curr_time - decoder->last_fps_time);
+    decoder->last_fps_time = curr_time;
+
+    av_log(avctx, AV_LOG_INFO,
+           "[FFMPEG RKMPP] FPS: %6.1f || Frames: %" PRIu64 "\n",
+           fps, decoder->frames);
+}
+
 static int rkmpp_retrieve_frame(AVCodecContext *avctx, AVFrame *frame)
 {
     RKMPPDecodeContext *rk_context = avctx->priv_data;
@@ -506,6 +549,8 @@ retry:
         // now setup the frame buffer info
         buffer = mpp_frame_get_buffer(mppframe);
         if (buffer) {
+            rkmpp_update_fps(avctx);
+
             // drm_prime does support internal frame allocation.
             if (avctx->pix_fmt != AV_PIX_FMT_DRM_PRIME) {
                 if (avctx->get_buffer2 != avcodec_default_get_buffer2) {
@@ -719,6 +764,7 @@ static void rkmpp_flush(AVCodecContext *avctx)
     if (ret == MPP_OK) {
         decoder->first_packet = 1;
         decoder->eos_reached = 0;
+        decoder->last_fps_time = decoder->frames = 0;
     } else
         av_log(avctx, AV_LOG_ERROR, "Failed to reset MPI (code = %d)\n", ret);
 }
