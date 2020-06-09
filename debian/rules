@@ -147,6 +147,11 @@ ifeq ($(DEB_HOST_ARCH_OS),linux)
 		--enable-libiec61883
 endif
 
+# Enable nvenc on amd64 only; not supported on other architectures.
+ifeq ($(DEB_HOST_ARCH),amd64)
+	CONFIG += --enable-nvenc
+endif
+
 # ffmpeg is involved in build-dependency cycles with x264 and chromaprint, so disable them in stage one.
 # Also disable frei0r, which build-depends on opencv.
 ifneq ($(filter pkg.ffmpeg.stage1,$(DEB_BUILD_PROFILES)),)
@@ -177,6 +182,8 @@ endif
 ifneq (,$(filter $(DEB_HOST_ARCH),x32))
 	CONFIG += --disable-asm
 endif
+
+
 
 # Disable some optimizations on mips*, because they are not always available on these architectures
 ifneq (,$(filter mips%r6 mips%r6el, $(DEB_HOST_ARCH)))

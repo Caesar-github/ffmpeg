@@ -1,7 +1,8 @@
 Source: ffmpeg
 Section: video
 Priority: optional
-Maintainer: Debian Multimedia Maintainers <debian-multimedia@lists.debian.org>
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+XSBC-Original-Maintainer: Debian Multimedia Maintainers <debian-multimedia@lists.debian.org>
 Uploaders: Andreas Cadhalpun <Andreas.Cadhalpun@googlemail.com>,
  Alexander Strasser <eclipse7@gmx.net>,
  Reinhard Tartler <siretart@tauware.de>,
@@ -56,6 +57,8 @@ Build-Depends:
  libdc1394-22-dev [linux-any],
 # --enable-libdrm
  libdrm-dev [linux-any],
+# --enable-nvenc
+ libffmpeg-nvenc-dev,
 # --enable-libfontconfig
  libfontconfig1-dev,
 # --enable-libfreetype
