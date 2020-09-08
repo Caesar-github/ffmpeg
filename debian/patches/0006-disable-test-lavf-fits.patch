@@ -1,0 +1,20 @@
+Description: Disable broken lavf fits tests on i386
+ lavf tests are broken for i386 because of float operations,
+ this can either be fixed by building this project with
+ --extra-cflags=-msse2, but since those tests were removed
+ by upstream in version 4.2, we are disabling them here.
+Author: Eduardo Barretto <eduardo.barretto@canonical.com>
+---
+Forwarded: not-needed
+Last-Update: 2020-07-21
+
+--- ffmpeg-3.4.8.orig/tests/fate/avformat.mak
++++ ffmpeg-3.4.8/tests/fate/avformat.mak
+@@ -10,7 +10,6 @@ FATE_LAVF-$(call ENCDEC,  PCM_S16BE,
+ FATE_LAVF-$(call ENCDEC,  DPX,                   IMAGE2)             += dpx
+ FATE_LAVF-$(call ENCDEC2, DVVIDEO,    PCM_S16LE, AVI)                += dv_fmt
+ FATE_LAVF-$(call ENCDEC2, MPEG1VIDEO, MP2,       FFM)                += ffm
+-FATE_LAVF-$(call ENCDEC,  FITS,                  FITS)               += fits
+ FATE_LAVF-$(call ENCDEC,  RAWVIDEO,              FILMSTRIP)          += flm
+ FATE_LAVF-$(call ENCDEC,  FLV,                   FLV)                += flv_fmt
+ FATE_LAVF-$(call ENCDEC,  GIF,                   IMAGE2)             += gif
