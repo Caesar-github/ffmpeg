@@ -49,7 +49,6 @@
 #include "avformat.h"
 #include "avio_internal.h"
 #include "spdif.h"
-#include "libavcodec/ac3.h"
 #include "libavcodec/adts_parser.h"
 #include "libavcodec/dca.h"
 #include "libavcodec/dca_syncwords.h"
@@ -101,48 +100,6 @@ static const AVClass spdif_class = {
     .option         = options,
     .version        = LIBAVUTIL_VERSION_INT,
 };
-
-static int spdif_header_ac3(AVFormatContext *s, AVPacket *pkt)
-{
-    IEC61937Context *ctx = s->priv_data;
-    int bitstream_mode = pkt->data[5] & 0x7;
-
-    ctx->data_type  = IEC61937_AC3 | (bitstream_mode << 8);
-    ctx->pkt_offset = AC3_FRAME_SIZE << 2;
-    return 0;
-}
-
-static int spdif_header_eac3(AVFormatContext *s, AVPacket *pkt)
-{
-    IEC61937Context *ctx = s->priv_data;
-    static const uint8_t eac3_repeat[4] = {6, 3, 2, 1};
-    int repeat = 1;
-
-    int bsid = pkt->data[5] >> 3;
-    if (bsid > 10 && (pkt->data[4] & 0xc0) != 0xc0) /* fscod */
-        repeat = eac3_repeat[(pkt->data[4] & 0x30) >> 4]; /* numblkscod */
-
-    ctx->hd_buf = av_fast_realloc(ctx->hd_buf, &ctx->hd_buf_size, ctx->hd_buf_filled + pkt->size);
-    if (!ctx->hd_buf)
-        return AVERROR(ENOMEM);
-
-    memcpy(&ctx->hd_buf[ctx->hd_buf_filled], pkt->data, pkt->size);
-
-    ctx->hd_buf_filled += pkt->size;
-    if (++ctx->hd_buf_count < repeat){
-        ctx->pkt_offset = 0;
-        return 0;
-    }
-    ctx->data_type   = IEC61937_EAC3;
-    ctx->pkt_offset  = 24576;
-    ctx->out_buf     = ctx->hd_buf;
-    ctx->out_bytes   = ctx->hd_buf_filled;
-    ctx->length_code = ctx->hd_buf_filled;
-
-    ctx->hd_buf_count  = 0;
-    ctx->hd_buf_filled = 0;
-    return 0;
-}
 
 /*
  * DTS type IV (DTS-HD) can be transmitted with various frame repetition
@@ -445,12 +402,6 @@ static int spdif_write_header(AVFormatContext *s)
     IEC61937Context *ctx = s->priv_data;
 
     switch (s->streams[0]->codecpar->codec_id) {
-    case AV_CODEC_ID_AC3:
-        ctx->header_info = spdif_header_ac3;
-        break;
-    case AV_CODEC_ID_EAC3:
-        ctx->header_info = spdif_header_eac3;
-        break;
     case AV_CODEC_ID_MP1:
     case AV_CODEC_ID_MP2:
     case AV_CODEC_ID_MP3:

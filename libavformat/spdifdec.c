@@ -27,7 +27,6 @@
 
 #include "libavutil/bswap.h"
 
-#include "libavcodec/ac3.h"
 #include "libavcodec/adts_parser.h"
 
 #include "avformat.h"
@@ -43,10 +42,6 @@ static int spdif_get_offset_and_codec(AVFormatContext *s,
     int ret;
 
     switch (data_type & 0xff) {
-    case IEC61937_AC3:
-        *offset = AC3_FRAME_SIZE << 2;
-        *codec = AV_CODEC_ID_AC3;
-        break;
     case IEC61937_MPEG1_LAYER1:
         *offset = spdif_mpeg_pkt_offset[1][0];
         *codec = AV_CODEC_ID_MP1;

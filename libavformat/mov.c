@@ -46,9 +46,6 @@
 #include "libavutil/spherical.h"
 #include "libavutil/stereo3d.h"
 #include "libavutil/timecode.h"
-#ifdef CONFIG_AC3_DEMUXER
-#include "libavcodec/ac3tab.h"
-#endif
 #include "libavcodec/flac.h"
 #include "libavcodec/mpegaudiodecheader.h"
 #include "avformat.h"
@@ -780,150 +777,6 @@ static int mov_read_esds(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 {
     return ff_mov_read_esds(c->fc, pb);
 }
-
-#ifdef CONFIG_AC3_DEMUXER
-static int mov_read_dac3(MOVContext *c, AVIOContext *pb, MOVAtom atom)
-{
-    AVStream *st;
-    enum AVAudioServiceType *ast;
-    int ac3info, acmod, lfeon, bsmod;
-
-    if (c->fc->nb_streams < 1)
-        return 0;
-    st = c->fc->streams[c->fc->nb_streams-1];
-
-    ast = (enum AVAudioServiceType*)av_stream_new_side_data(st, AV_PKT_DATA_AUDIO_SERVICE_TYPE,
-                                                            sizeof(*ast));
-    if (!ast)
-        return AVERROR(ENOMEM);
-
-    ac3info = avio_rb24(pb);
-    bsmod = (ac3info >> 14) & 0x7;
-    acmod = (ac3info >> 11) & 0x7;
-    lfeon = (ac3info >> 10) & 0x1;
-    st->codecpar->channels = ((int[]){2,1,2,3,3,4,4,5})[acmod] + lfeon;
-    st->codecpar->channel_layout = avpriv_ac3_channel_layout_tab[acmod];
-    if (lfeon)
-        st->codecpar->channel_layout |= AV_CH_LOW_FREQUENCY;
-    *ast = bsmod;
-    if (st->codecpar->channels > 1 && bsmod == 0x7)
-        *ast = AV_AUDIO_SERVICE_TYPE_KARAOKE;
-
-#if FF_API_LAVF_AVCTX
-    FF_DISABLE_DEPRECATION_WARNINGS
-    st->codec->audio_service_type = *ast;
-    FF_ENABLE_DEPRECATION_WARNINGS
-#endif
-
-    return 0;
-}
-#endif
-
-#ifdef CONFIG_EAC3_DEMUXER
-static int mov_read_dec3(MOVContext *c, AVIOContext *pb, MOVAtom atom)
-{
-    AVStream *st;
-    enum AVAudioServiceType *ast;
-    int eac3info, acmod, lfeon, bsmod;
-
-    if (c->fc->nb_streams < 1)
-        return 0;
-    st = c->fc->streams[c->fc->nb_streams-1];
-
-    ast = (enum AVAudioServiceType*)av_stream_new_side_data(st, AV_PKT_DATA_AUDIO_SERVICE_TYPE,
-                                                            sizeof(*ast));
-    if (!ast)
-        return AVERROR(ENOMEM);
-
-    /* No need to parse fields for additional independent substreams and its
-     * associated dependent substreams since libavcodec's E-AC-3 decoder
-     * does not support them yet. */
-    avio_rb16(pb); /* data_rate and num_ind_sub */
-    eac3info = avio_rb24(pb);
-    bsmod = (eac3info >> 12) & 0x1f;
-    acmod = (eac3info >>  9) & 0x7;
-    lfeon = (eac3info >>  8) & 0x1;
-    st->codecpar->channel_layout = avpriv_ac3_channel_layout_tab[acmod];
-    if (lfeon)
-        st->codecpar->channel_layout |= AV_CH_LOW_FREQUENCY;
-    st->codecpar->channels = av_get_channel_layout_nb_channels(st->codecpar->channel_layout);
-    *ast = bsmod;
-    if (st->codecpar->channels > 1 && bsmod == 0x7)
-        *ast = AV_AUDIO_SERVICE_TYPE_KARAOKE;
-
-#if FF_API_LAVF_AVCTX
-    FF_DISABLE_DEPRECATION_WARNINGS
-    st->codec->audio_service_type = *ast;
-    FF_ENABLE_DEPRECATION_WARNINGS
-#endif
-
-    return 0;
-}
-#endif
-
-#ifdef CONFIG_DTS_DEMUXER
-static int mov_read_ddts(MOVContext *c, AVIOContext *pb, MOVAtom atom)
-{
-    const uint32_t ddts_size = 20;
-    AVStream *st = NULL;
-    uint8_t *buf = NULL;
-    uint32_t frame_duration_code = 0;
-    uint32_t channel_layout_code = 0;
-    GetBitContext gb;
-
-    buf = av_malloc(ddts_size + AV_INPUT_BUFFER_PADDING_SIZE);
-    if (!buf) {
-        return AVERROR(ENOMEM);
-    }
-    if (avio_read(pb, buf, ddts_size) < ddts_size) {
-        av_free(buf);
-        return AVERROR_INVALIDDATA;
-    }
-
-    init_get_bits(&gb, buf, 8*ddts_size);
-
-    if (c->fc->nb_streams < 1) {
-        av_free(buf);
-        return 0;
-    }
-    st = c->fc->streams[c->fc->nb_streams-1];
-
-    st->codecpar->sample_rate = get_bits_long(&gb, 32);
-    if (st->codecpar->sample_rate <= 0) {
-        av_log(c->fc, AV_LOG_ERROR, "Invalid sample rate %d\n", st->codecpar->sample_rate);
-        av_free(buf);
-        return AVERROR_INVALIDDATA;
-    }
-    skip_bits_long(&gb, 32); /* max bitrate */
-    st->codecpar->bit_rate = get_bits_long(&gb, 32);
-    st->codecpar->bits_per_coded_sample = get_bits(&gb, 8);
-    frame_duration_code = get_bits(&gb, 2);
-    skip_bits(&gb, 30); /* various fields */
-    channel_layout_code = get_bits(&gb, 16);
-
-    st->codecpar->frame_size =
-            (frame_duration_code == 0) ? 512 :
-            (frame_duration_code == 1) ? 1024 :
-            (frame_duration_code == 2) ? 2048 :
-            (frame_duration_code == 3) ? 4096 : 0;
-
-    if (channel_layout_code > 0xff) {
-        av_log(c->fc, AV_LOG_WARNING, "Unsupported DTS audio channel layout");
-    }
-    st->codecpar->channel_layout =
-            ((channel_layout_code & 0x1) ? AV_CH_FRONT_CENTER : 0) |
-            ((channel_layout_code & 0x2) ? AV_CH_FRONT_LEFT : 0) |
-            ((channel_layout_code & 0x2) ? AV_CH_FRONT_RIGHT : 0) |
-            ((channel_layout_code & 0x4) ? AV_CH_SIDE_LEFT : 0) |
-            ((channel_layout_code & 0x4) ? AV_CH_SIDE_RIGHT : 0) |
-            ((channel_layout_code & 0x8) ? AV_CH_LOW_FREQUENCY : 0);
-
-    st->codecpar->channels = av_get_channel_layout_nb_channels(st->codecpar->channel_layout);
-    av_free(buf);
-
-    return 0;
-}
-#endif
 
 static int mov_read_chan(MOVContext *c, AVIOContext *pb, MOVAtom atom)
 {
@@ -2430,12 +2283,6 @@ static int mov_finalize_stsd_codec(MOVContext *c, AVIOContext *pb,
             st->codecpar->sample_rate = AV_RB32(st->codecpar->extradata + 32);
         }
         break;
-#ifdef CONFIG_AC3_DEMUXER
-    case AV_CODEC_ID_AC3:
-#endif
-#ifdef CONFIG_EAC3_DEMUXER
-    case AV_CODEC_ID_EAC3:
-#endif
     case AV_CODEC_ID_MPEG1VIDEO:
     case AV_CODEC_ID_VC1:
     case AV_CODEC_ID_VP8:
@@ -6782,15 +6629,6 @@ static const MOVParseTableEntry mov_default_parse_table[] = {
 { MKTAG('u','d','t','a'), mov_read_default },
 { MKTAG('w','a','v','e'), mov_read_wave },
 { MKTAG('e','s','d','s'), mov_read_esds },
-#ifdef CONFIG_AC3_DEMUXER
-{ MKTAG('d','a','c','3'), mov_read_dac3 }, /* AC-3 info */
-#endif
-#ifdef CONFIG_EAC3_DEMUXER
-{ MKTAG('d','e','c','3'), mov_read_dec3 }, /* EAC-3 info */
-#endif
-#ifdef CONFIG_DTS_DEMUXER
-{ MKTAG('d','d','t','s'), mov_read_ddts }, /* DTS audio descriptor */
-#endif
 { MKTAG('w','i','d','e'), mov_read_wide }, /* place holder */
 { MKTAG('w','f','e','x'), mov_read_wfex },
 { MKTAG('c','m','o','v'), mov_read_cmov },
