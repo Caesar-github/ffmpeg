@@ -182,11 +182,11 @@ CONFIG += --enable-libdrm --enable-librga --enable-rkmpp --enable-version3 \
 	--disable-decoder=mpeg2_v4l2m2m --disable-decoder=mpeg4_v4l2m2m
 
 # Disable dolby's ac3 & mlp & truehd & dolby_e & dts
-CONFIG += --disable-muxer=ac3,eac3,mlp,truehd \
-	--disable-encoder=ac3_fixed,ac3,mlp,spdif,truehd \
-	--disable-demuxer=ac3,eac3,mlp,truehd,dts,dtshd \
-	--disable-parser=aac,ac3,mlp \
-	--disable-decoder=ac3,eac3,mlp,dolby_e
+CONFIG += --disable-muxer=rm,avi,flv,ac3,dts,eac3,mlp,truehd \
+	--disable-encoder=flv,aac,ac3_fixed,ac3,mlp,spdif,truehd \
+	--disable-demuxer=aac,ac3,eac3,mlp,truehd,dts,dtshd,flv \
+	--disable-parser=aac_latm,ac3,mlp,aac,dca \
+	--disable-decoder=aac,eacmv,aac_fixed,aac_latm,flv,vp6,vp6a,vp6f,ac3,eac3,mlp,dolby_e
 
 # Use the default debhelper scripts, where possible.
 %:
