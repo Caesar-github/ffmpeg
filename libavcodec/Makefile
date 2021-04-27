@@ -537,8 +537,6 @@ OBJS-$(CONFIG_RPZA_DECODER)            += rpza.o
 OBJS-$(CONFIG_RSCC_DECODER)            += rscc.o
 OBJS-$(CONFIG_RV10_DECODER)            += rv10.o
 OBJS-$(CONFIG_RV10_ENCODER)            += rv10enc.o
-OBJS-$(CONFIG_RV20_DECODER)            += rv10.o
-OBJS-$(CONFIG_RV20_ENCODER)            += rv20enc.o
 OBJS-$(CONFIG_RV30_DECODER)            += rv30.o rv34.o rv30dsp.o
 OBJS-$(CONFIG_RV40_DECODER)            += rv40.o rv34.o rv40dsp.o
 OBJS-$(CONFIG_SAMI_DECODER)            += samidec.o ass.o htmlsubtitles.o
@@ -586,7 +584,6 @@ OBJS-$(CONFIG_SBC_ENCODER)             += sbcenc.o sbc.o sbcdsp.o sbcdsp_data.o
 OBJS-$(CONFIG_SVQ1_DECODER)            += svq1dec.o svq1.o svq13.o h263data.o
 OBJS-$(CONFIG_SVQ1_ENCODER)            += svq1enc.o svq1.o  h263data.o  \
                                           h263.o ituh263enc.o
-OBJS-$(CONFIG_SVQ3_DECODER)            += svq3.o svq13.o mpegutils.o h264data.o
 OBJS-$(CONFIG_TEXT_DECODER)            += textdec.o ass.o
 OBJS-$(CONFIG_TEXT_ENCODER)            += srtenc.o ass_split.o
 OBJS-$(CONFIG_TAK_DECODER)             += takdec.o tak.o takdsp.o
@@ -643,8 +640,6 @@ OBJS-$(CONFIG_VORBIS_ENCODER)          += vorbisenc.o vorbis.o \
                                           vorbis_data.o
 OBJS-$(CONFIG_VP3_DECODER)             += vp3.o
 OBJS-$(CONFIG_VP5_DECODER)             += vp5.o vp56.o vp56data.o vp56rac.o
-OBJS-$(CONFIG_VP6_DECODER)             += vp6.o vp56.o vp56data.o \
-                                          vp6dsp.o vp56rac.o
 OBJS-$(CONFIG_VP7_DECODER)             += vp8.o vp56rac.o
 OBJS-$(CONFIG_VP8_DECODER)             += vp8.o vp56rac.o
 OBJS-$(CONFIG_VP8_CUVID_DECODER)       += cuviddec.o

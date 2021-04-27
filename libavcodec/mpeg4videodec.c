@@ -3552,7 +3552,6 @@ static av_cold int decode_end(AVCodecContext *avctx)
 
 static const AVOption mpeg4_options[] = {
     {"quarter_sample", "1/4 subpel MC", offsetof(MpegEncContext, quarter_sample), AV_OPT_TYPE_BOOL, {.i64 = 0}, 0, 1, 0},
-    {"divx_packed", "divx style packed b frames", offsetof(MpegEncContext, divx_packed), AV_OPT_TYPE_BOOL, {.i64 = 0}, 0, 1, 0},
     {NULL}
 };
 
